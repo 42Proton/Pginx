@@ -1,0 +1,22 @@
+name: Testing
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  demo:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Installing Dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+
+      - name: Makefile Syntax Check
+        run: make -n
+
+      - name: Run Makefile
+        run: make
