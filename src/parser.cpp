@@ -32,4 +32,6 @@ bool parser(std::string inputFile)
     std::ifstream file(inputFile.c_str());
     if (!file.is_open())
         throw CustomExceptions::OpenFileException();
+
+    return false;
 }
