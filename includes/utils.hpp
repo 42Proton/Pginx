@@ -2,9 +2,10 @@
 #define UTILS_HPP
 
 #include <CustomExceptions.hpp>
+#include <fstream>
 #include <iostream>
 #include <string>
 
-bool parser(std::string);
+std::string initValidation(int argc, char **argv);
 
 #endif

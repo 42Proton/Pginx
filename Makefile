@@ -15,13 +15,14 @@ HEADRS_SRC= $(addprefix $(MODLES_DR)/,$(HEADERS))
 MODELS_OBJS= $(MODELS_DR_SRC:%.cpp=build/%.o)
 SRCS_OBJS= $(SRCS_DR_SRC:%.cpp=build/%.o)
 
+HEADERS_SRC += $(TEMPLATES_S)
 
 NAME = Webserv
 all: $(NAME)
 
 $(NAME): $(MODELS_OBJS) $(SRCS_OBJS)
 	$(CC) $(MODELS_OBJS) $(SRCS_OBJS) $(CFLAGS) -o $(NAME)
-build/%.o:%.cpp  $(HEADRS_SRC) $(TEMPLATES_S)
+build/%.o:%.cpp  $(HEADRS_SRC)
 	@mkdir -p $(dir $@)
 	$(CC)   $(CFLAGS) -c $< -o $@ 
 clean: 
