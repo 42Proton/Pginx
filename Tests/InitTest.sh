@@ -4,7 +4,7 @@ if [ ! -x "../WebServ" ]; then
     make -C ..
 fi
 
-WEBSERV="../WebServer"
+WEBSERV="../Webserv"
 
 
 TEST_CASES=(
@@ -55,5 +55,6 @@ done
 
 echo "----------------------------"
 echo "TEST SUMMARY: $passed passed, $failed failed"
+make -C .. fclean
 
-[$failed -eq 0] || exit 1
+[ $failed -eq 0 ] || exit 1
