@@ -1,6 +1,8 @@
 SRCS=\
 		main.cpp\
-		utils.cpp
+		utils.cpp\
+		parser.cpp
 MODELS=\
+		CustomExceptions.cpp
 
 HEADERS=$(MODELS:.cpp=.hpp)
