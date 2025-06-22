@@ -24,4 +24,4 @@ jobs:
       - name: Init Tests
         run: |
           chmod +x Tests/InitTest.sh
-          cd Tests && ./InitTest.sh
+          ./Tests/InitTest.sh
