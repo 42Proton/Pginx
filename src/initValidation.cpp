@@ -14,7 +14,7 @@ static std::string checkInput(int argc, char **argv)
 
 static bool checkValidExt(std::string input)
 {
-    if (input.empty() || input.length() < 5 || input.length() > 30)
+    if (input.empty() || input.length() < 5 || input.length() > MAX_EXT_LENGTH)
         return true;
     size_t dotIndex = input.find_last_of('.');
 
