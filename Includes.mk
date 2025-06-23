@@ -3,6 +3,7 @@ SRCS=\
 		utils.cpp\
 		parser.cpp
 MODELS=\
-		CustomExceptions.cpp
+		CustomExceptions.cpp\
+		ServerManager.cpp
 
 HEADERS=$(MODELS:.cpp=.hpp)

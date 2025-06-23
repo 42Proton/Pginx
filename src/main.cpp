@@ -1,4 +1,5 @@
 #include <utils.hpp>
+#include "../models/ServerManager.hpp"
 
 std::string checkInput(int argc, char **argv)
 {
@@ -12,6 +13,7 @@ std::string checkInput(int argc, char **argv)
 int main(int argc, char **argv)
 {
     std::string inputFile = checkInput(argc, argv);
+    ServerManager   conf;
 
     if (inputFile.empty())
     {
@@ -19,10 +21,14 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (parser(inputFile))
+    try
     {
-        std::cerr << "Error while initializing" << std::endl;
-        return 1;
+        if (parser(inputFile))
+            std::cerr << "Error while initializing" << std::endl;
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
     }
     std::cout << "Noicee" << std::endl;
 }
