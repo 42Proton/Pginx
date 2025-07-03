@@ -1,7 +1,6 @@
 SRCS=\
 		main.cpp\
 		utils.cpp\
-		parser.cpp\
 		initValidation.cpp
 MODELS=\
 		CustomExceptions.cpp
