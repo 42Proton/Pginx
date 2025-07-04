@@ -1,15 +1,12 @@
-#ifndef PARSER_HPP
-#define PARSER_HPP
+#ifndef SERVERCONTAINER_HPP
+#define SERVERCONTAINER_HPP
 
 #include <Server.hpp>
 #include <utils.hpp>
-
-class Parser
+class ServerContainer
 {
   private:
     std::vector<Server> _servers;
-
-  public:
 };
 
 #endif

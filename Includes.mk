@@ -1,11 +1,12 @@
 SRCS=\
 		main.cpp\
 		utils.cpp\
-		parser.cpp\
 		initValidation.cpp
 MODELS=\
-		CustomExceptions.cpp
-
+		CustomExceptions.cpp\
+		Server.cpp\
+		AServer.cpp\
+		ServerContainer.cpp
 TEMPLATES=\
 
 HEADERS=$(MODELS:.cpp=.hpp)
