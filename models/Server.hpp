@@ -10,6 +10,13 @@ class Server
     std::vector<u_int16_t> _PORTS;
     std::string _serverName;
     std::ifstream _errorPages;
+    std::map<u_int16_t, std::string> _errorPages;
+
+  public:
+    bool getIsDefault() const;
+    void setIsDefault();
+    std::vector<u_int16_t> getPorts() const;
+    std::string getServerName() const;
 };
 
 #endif
