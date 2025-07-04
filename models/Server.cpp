@@ -1,7 +1,7 @@
 #include <Server.hpp>
 
-Server::Server(std::vector<u_int16_t> ports, std::string serverName, bool isDefault = false)
-    : _PORTS(ports), _serverName(serverName), _isdefault(isDefault)
+Server::Server(std::vector<u_int16_t> ports, std::string serverName, bool isDefault)
+    : _isdefault(isDefault), _PORTS(ports), _serverName(serverName)
 {
 }
 
