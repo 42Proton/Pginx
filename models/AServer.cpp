@@ -11,7 +11,7 @@ size_t AServer::getClientMaxBody() const
     return _clientMaxBody;
 }
 
-std::map<u_int16_t, std::string> AServer::getErrorPages() const
+std::map<u_int16_t, std::string> &AServer::getErrorPages()
 {
     return _errorPages;
 }
