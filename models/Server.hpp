@@ -1,18 +1,18 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#include <utils.hpp>
+#include <AServer.hpp>
 
-class Server
+class Server : public AServer
 {
   private:
     bool _isdefault;
     std::vector<u_int16_t> _PORTS;
     std::string _serverName;
-    std::ifstream _errorPages;
-    std::map<u_int16_t, std::string> _errorPages;
+    Server();
 
   public:
+    Server(std::vector<u_int16_t> ports, std::string serverName, bool isDefault = false);
     bool getIsDefault() const;
     void setIsDefault();
     std::vector<u_int16_t> getPorts() const;
