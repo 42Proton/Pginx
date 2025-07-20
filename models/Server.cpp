@@ -1,24 +1,38 @@
 #include <Server.hpp>
 
-Server::Server(std::vector<u_int16_t> ports, std::string serverName, bool isDefault)
-    : _isdefault(isDefault), _PORTS(ports), _serverName(serverName)
-{
-}
+Server::Server():
+    BaseBlock(),
+    _isDefault(false),
+    _ports(),
+    _serverName()
+{}
 
 bool Server::getIsDefault() const
 {
-    return _isdefault;
+    return this->_isDefault;
 }
 
-void Server::setIsDefault()
+const std::vector<u_int16_t>& Server::getPorts() const
 {
-    _isdefault = true;
+    return this->_ports;
 }
-std::vector<u_int16_t> Server::getPorts() const
+
+const std::string& Server::getServerName() const
 {
-    return _PORTS;
+    return this->_serverName;
 }
-std::string Server::getServerName() const
+
+void Server::setIsDefault(bool isDefault)
 {
-    return _serverName;
+    this->_isDefault = isDefault;
+}
+
+void Server::setPorts(std::vector<u_int16_t>& ports)
+{
+    this->_ports = ports;
+}
+
+void Server::setServerName(std::string& serverName)
+{
+    this->_serverName = serverName;
 }

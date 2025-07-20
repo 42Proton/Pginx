@@ -1,22 +1,23 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#include <AServer.hpp>
+#include <BaseBlock.hpp>
 
-class Server : public AServer
+class Server: public BaseBlock
 {
   private:
-    bool _isdefault;
-    std::vector<u_int16_t> _PORTS;
+    bool _isDefault;
+    std::vector<u_int16_t> _ports;
     std::string _serverName;
-    Server();
 
   public:
-    Server(std::vector<u_int16_t> ports, std::string serverName, bool isDefault = false);
+    Server();
     bool getIsDefault() const;
-    void setIsDefault();
-    std::vector<u_int16_t> getPorts() const;
-    std::string getServerName() const;
+    const std::vector<u_int16_t>& getPorts() const;
+    const std::string& getServerName() const;
+    void setIsDefault(bool isDefault);
+    void setPorts(std::vector<u_int16_t>& ports);
+    void setServerName(std::string& serverName);
 };
 
 #endif
