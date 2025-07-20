@@ -1,10 +1,10 @@
 #!/bin/bash
 
-if [ ! -x "../WebServ" ]; then
+if [ ! -x "../pginx" ]; then
     make
 fi
 
-WEBSERV="./Webserv"
+WEBSERV="./pginx"
 
 
 TEST_CASES=(
