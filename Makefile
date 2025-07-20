@@ -17,14 +17,16 @@ SRCS_OBJS= $(SRCS_DR_SRC:%.cpp=build/%.o)
 
 HEADERS_SRC += $(TEMPLATES_S)
 
-NAME = Webserv
+NAME = pginx
 all: $(NAME)
 
 $(NAME): $(MODELS_OBJS) $(SRCS_OBJS)
 	$(CC) $(MODELS_OBJS) $(SRCS_OBJS) $(CFLAGS) -o $(NAME)
+
 build/%.o:%.cpp  $(HEADRS_SRC)
 	@mkdir -p $(dir $@)
-	$(CC)   $(CFLAGS) -c $< -o $@ 
+	$(CC)   $(CFLAGS) -c $< -o $@
+
 clean: 
 	rm -f  $(MODELS_OBJS) $(SRCS_OBJS)
 	rm -rf build

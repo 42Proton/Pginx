@@ -5,7 +5,7 @@ SRCS=\
 MODELS=\
 		CustomExceptions.cpp\
 		Server.cpp\
-		AServer.cpp\
+		BaseBlock.cpp\
 		ServerContainer.cpp
 TEMPLATES=\
 
