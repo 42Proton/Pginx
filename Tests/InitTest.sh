@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ ! -x "../pginx" ]; then
+if [ ! -x "./pginx" ]; then
     make
 fi
 
@@ -18,7 +18,7 @@ TEST_CASES=(
 passed=0;
 failed=0;
 
-echo "Starting WebServ Initialization TESTS..."
+echo "Starting Pginx Initialization TESTS..."
 
 for test in "${TEST_CASES[@]}"; do
     desc=$(echo "$test" | cut -d':' -f1)
@@ -31,6 +31,7 @@ for test in "${TEST_CASES[@]}"; do
     echo "Expected exit code: $code"
 
 
+    echo "$WEBSERV $args > /dev/null 2>&1"
     $WEBSERV $args > /dev/null 2>&1
     actual_code=$?
     

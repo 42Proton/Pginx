@@ -17,7 +17,7 @@ SRCS_OBJS= $(SRCS_DR_SRC:%.cpp=build/%.o)
 
 HEADERS_SRC += $(TEMPLATES_S)
 
-NAME = pgnix
+NAME = pginx
 all: $(NAME)
 
 $(NAME): $(MODELS_OBJS) $(SRCS_OBJS)
