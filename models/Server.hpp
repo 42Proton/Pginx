@@ -9,14 +9,15 @@ class Server : public AServer
     bool _isdefault;
     std::vector<u_int16_t> _PORTS;
     std::string _serverName;
-    Server();
+    std::string _root;
 
   public:
-    Server(std::vector<u_int16_t> ports, std::string serverName, bool isDefault = false);
+    Server();
     bool getIsDefault() const;
     void setIsDefault();
     std::vector<u_int16_t> getPorts() const;
     std::string getServerName() const;
+    std::string getRoot() const;
 };
 
 #endif

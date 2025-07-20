@@ -1,10 +1,5 @@
 #include <Server.hpp>
 
-Server::Server(std::vector<u_int16_t> ports, std::string serverName, bool isDefault)
-    : _isdefault(isDefault), _PORTS(ports), _serverName(serverName)
-{
-}
-
 bool Server::getIsDefault() const
 {
     return _isdefault;
