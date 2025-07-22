@@ -4,9 +4,10 @@
 #include <exception>
 #include <utils.hpp>
 
-class CustomExceptions
+class CommonExceptions
 {
-
+  private:
+    CommonExceptions();
   public:
     class OpenFileException : public std::exception
     {
