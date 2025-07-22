@@ -3,10 +3,11 @@ SRCS=\
 		utils.cpp\
 		initValidation.cpp
 MODELS=\
-		CustomExceptions.cpp\
+		CommonExceptions.cpp\
 		Server.cpp\
 		BaseBlock.cpp\
 		ServerContainer.cpp
 TEMPLATES=\
 
-HEADERS=$(MODELS:.cpp=.hpp)
+HEADERS = $(MODELS:.cpp=.hpp)
+HEADERS += utils.hpp Parser.hpp
