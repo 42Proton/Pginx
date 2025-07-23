@@ -1,11 +1,10 @@
 #!/bin/bash
 
-if [ ! -x "./pginx" ]; then
+if [ ! -x "./Pginx" ]; then
     make
 fi
 
-WEBSERV="./pginx"
-
+WEBSERV="./Pginx"
 
 TEST_CASES=(
     "Default Config:config/default.conf:0"
