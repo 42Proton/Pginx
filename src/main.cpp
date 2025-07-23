@@ -1,34 +1,19 @@
+#include <defaults.hpp>
 #include <utils.hpp>
 #include "../models/ServerManager.hpp"
 
-std::string checkInput(int argc, char **argv)
-{
-    if (argc == 1)
-        return "/config/default.conf";
-    if (argc == 2)
-        return std::string(argv[1]);
-    else
-        return "";
-}
 int main(int argc, char **argv)
 {
-    std::string inputFile = checkInput(argc, argv);
-    ServerManager   conf;
+    try
+{    
+        std::ifstream inputFile((initValidation(argc, argv)).c_str());
 
-    if (inputFile.empty())
+        if (!inputFile.is_open())
+            throw CommonExceptions::OpenFileException();
+    }
+    catch (std::exception &e)
     {
-        std::cerr << "Invalid number of arguements" << std::endl;
+        std::cerr << e.what() << std::endl;
         return 1;
     }
-
-    try
-    {
-        if (parser(inputFile))
-            std::cerr << "Error while initializing" << std::endl;
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-    }
-    std::cout << "Noicee" << std::endl;
 }
