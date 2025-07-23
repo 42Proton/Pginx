@@ -1,5 +1,7 @@
 #include <Server.hpp>
 
+std::string Server::_defaultServerName = "";
+
 Server::Server() : BaseBlock(), _ports(), _serverName()
 {
     if (_defaultServerName.empty())

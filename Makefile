@@ -17,13 +17,13 @@ SRCS_OBJS= $(SRCS_DR_SRC:%.cpp=build/%.o)
 
 HEADERS_SRC += $(TEMPLATES_S)
 
-NAME = pginx
+NAME = Pginx
 all: $(NAME)
 
 $(NAME): $(MODELS_OBJS) $(SRCS_OBJS)
 	$(CC) $(MODELS_OBJS) $(SRCS_OBJS) $(CFLAGS) -o $(NAME)
 
-build/%.o:%.cpp  $(HEADRS_SRC)
+build/%.o:%.cpp  $(HEADERS_SRC)
 	@mkdir -p $(dir $@)
 	$(CC)   $(CFLAGS) -c $< -o $@
 
