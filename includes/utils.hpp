@@ -1,7 +1,7 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
-#include <CustomExceptions.hpp>
+#include <CommonExceptions.hpp>
 #include <iostream>
 #include <string>
 
