@@ -1,17 +1,17 @@
 include Includes.mk
 
 CC = c++
-CFLAGS = -Wall -Werror -Wextra -std=c++98 -g  -I./includes -I./templates -I./models
+CFLAGS = -Wall -Werror -Wextra -std=c++98 -g  -I./includes -I./templates -I./models/headers
 
-MODLES_DR = models
+MODELS_DR = models
 INCLUDES_DR = includes
 SRCS_DR = src
 TEMPLATES_DIR= templates
 
 TEMPLATES_S= $(addprefix $(TEMPLATES_DIR)/,$(TEMPLATES))
-MODELS_DR_SRC= $(addprefix $(MODLES_DR)/,$(MODELS))
+MODELS_DR_SRC= $(addprefix $(MODELS_DR)/srcs/,$(MODELS))
 SRCS_DR_SRC= $(addprefix $(SRCS_DR)/,$(SRCS))
-HEADERS_SRC= $(addprefix $(MODLES_DR)/,$(HEADERS))
+HEADERS_SRC= $(addprefix $(MODELS_DR)/headers/,$(HEADERS))
 MODELS_OBJS= $(MODELS_DR_SRC:%.cpp=build/%.o)
 SRCS_OBJS= $(SRCS_DR_SRC:%.cpp=build/%.o)
 

@@ -3,7 +3,7 @@ SRCS=\
 		utils.cpp\
 		initValidation.cpp
 MODELS=\
-		CustomExceptions.cpp\
+		CommonExceptions.cpp\
 		Server.cpp\
 		BaseBlock.cpp\
 		ServerContainer.cpp
