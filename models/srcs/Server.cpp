@@ -3,6 +3,8 @@
 Server::Server() : BaseBlock()
 {
     this->_serverNames.push_back("");
+    setRoot("pages/");
+    setListen(80, "0.0.0.0");
 }
 
 bool Server::validatePort(u_int16_t port) const
@@ -67,4 +69,31 @@ void Server::insertServerNames(const std::string &serverName)
         return;
 
     this->_serverNames.push_back(serverName);
+}
+
+void Server::setRoot(const std::string &root)
+{
+    if (root.empty())
+        throw CommonExceptions::InititalaizingException();
+    if (root[root.length() - 1] != '/')
+    {
+        this->_root = root + '/';
+        return;
+    }
+    struct stat st;
+    if (stat(root.c_str(), &st) != 0 || !S_ISDIR(st.st_mode))
+    {
+        throw CommonExceptions::OpenFileException();
+    }
+    if (access(root.c_str(), R_OK) != 0)
+    {
+        throw CommonExceptions::OpenFileException();
+    }
+
+    this->_root = root;
+}
+
+const std::string &Server::getRoot() const
+{
+    return this->_root;
 }

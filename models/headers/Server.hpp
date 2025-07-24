@@ -35,7 +35,6 @@ class Server : public BaseBlock
     const std::vector<std::string> &getServerNames() const;
     void setListen(u_int16_t port, const std::string &addr);
     void insertServerNames(const std::string &serverName);
-    void setServerNames(const std::vector<std::string> &serverNames);
     void setRoot(const std::string &root);
     const std::string &getRoot() const;
     void setIndexFiles(const std::vector<std::string> &indexFiles);

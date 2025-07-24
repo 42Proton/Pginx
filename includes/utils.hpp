@@ -8,6 +8,8 @@
 #include <map>
 #include <stack>
 #include <string>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <vector>
 
 std::string initValidation(int argc, char **argv);
