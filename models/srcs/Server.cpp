@@ -14,7 +14,7 @@ const std::string &Server::getServerName() const
     return this->_serverName;
 }
 
-void Server::setPorts(const std::vector<u_int16_t> &ports)
+void Server::setListens(const std::vector<u_int16_t> &ports)
 {
     this->_ports = ports;
 }
