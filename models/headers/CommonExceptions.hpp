@@ -1,5 +1,5 @@
-#ifndef CUSTOM_EXCE_HPP
-#define CUSTOM_EXCE_HPP
+#ifndef COMMON_EXCEPTIONS_HPP
+#define COMMON_EXCEPTIONS_HPP
 
 #include <exception>
 #include <utils.hpp>

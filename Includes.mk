@@ -9,5 +9,4 @@ MODELS=\
 		ServerContainer.cpp
 TEMPLATES=\
 
-HEADERS = $(MODELS:.cpp=.hpp)
-HEADERS += utils.hpp Parser.hpp
+HEADERS=$(MODELS:.cpp=.hpp)
