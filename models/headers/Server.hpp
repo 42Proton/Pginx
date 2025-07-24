@@ -22,7 +22,10 @@ class Server : public BaseBlock
     std::vector<std::string> _serverNames;
     std::string _root;
     std::vector<std::string> _indexFiles;
+    std::map<u_int16_t, std::string> _errorPages;
+    size_t _clientMaxBody;
 
+    // Location Variable is yet to be defiend until Amjad implements it.
     bool validatePort(u_int16_t port) const;
     bool validateAddress(const std::string &addr) const;
 
@@ -32,6 +35,15 @@ class Server : public BaseBlock
     const std::vector<std::string> &getServerNames() const;
     void setListen(u_int16_t port, const std::string &addr);
     void insertServerNames(const std::string &serverName);
+    void setServerNames(const std::vector<std::string> &serverNames);
+    void setRoot(const std::string &root);
+    const std::string &getRoot() const;
+    void setIndexFiles(const std::vector<std::string> &indexFiles);
+    const std::vector<std::string> &getIndexFiles() const;
+    void setErrorPages(const std::map<u_int16_t, std::string> &errorPages);
+    const std::map<u_int16_t, std::string> &getErrorPages() const;
+    void setClientMaxBody(const size_t clientMaxBody);
+    size_t getClientMaxBody() const;
 };
 
 #endif
