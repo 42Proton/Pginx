@@ -7,11 +7,6 @@ Server::Server() : BaseBlock()
     insertListen();
 }
 
-bool Server::validatePort(u_int16_t port) const
-{
-    return port > 0 && port < 65536;
-}
-
 bool Server::validateAddress(const std::string &addr) const
 {
     if (addr.empty())
@@ -47,7 +42,7 @@ const std::vector<std::string> &Server::getServerNames() const
 
 void Server::insertListen(u_int16_t port, const std::string &addr)
 {
-    if (validatePort(port) || validateAddress(addr))
+    if (validateAddress(addr))
         throw CommonExceptions::InititalaizingException();
     ListenCtx newListen;
     newListen.addr = addr;

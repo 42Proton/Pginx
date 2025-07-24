@@ -31,7 +31,6 @@ class Server : public BaseBlock
     std::string _root;
 
     // Location Variable is yet to be defiend until Amjad implements it.
-    bool validatePort(u_int16_t port) const;
     bool validateAddress(const std::string &addr) const;
 
   public:
