@@ -4,15 +4,12 @@ Server::Server() : BaseBlock()
 {
     this->_serverNames.push_back("");
     setRoot();
-    setListen();
+    insertListen();
 }
 
 bool Server::validatePort(u_int16_t port) const
 {
-    // I'll leave this as a placeholder for now.
-    // We might add the ability to check if the port is already in use or not.
-    // For now, we will just check if the port is within the valid range.
-    return port;
+    return port > 0 && port < 65536;
 }
 
 bool Server::validateAddress(const std::string &addr) const
@@ -38,9 +35,9 @@ bool Server::validateAddress(const std::string &addr) const
     return false;
 }
 
-const ListenCtx &Server::getListen() const
+const std::vector<ListenCtx> &Server::getListens() const
 {
-    return this->_listen;
+    return this->_listens;
 }
 
 const std::vector<std::string> &Server::getServerNames() const
@@ -48,12 +45,16 @@ const std::vector<std::string> &Server::getServerNames() const
     return this->_serverNames;
 }
 
-void Server::setListen(u_int16_t port, const std::string &addr)
+void Server::insertListen(u_int16_t port, const std::string &addr)
 {
     if (validatePort(port) || validateAddress(addr))
         throw CommonExceptions::InititalaizingException();
-    this->_listen.addr = addr;
-    this->_listen.port = port;
+    ListenCtx newListen;
+    newListen.addr = addr;
+    newListen.port = port;
+    if (std::find(this->_listens.begin(), this->_listens.end(), newListen) != this->_listens.end())
+        return;
+    this->_listens.push_back(newListen);
 }
 
 void Server::insertServerNames(const std::string &serverName)

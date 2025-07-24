@@ -13,15 +13,22 @@ struct ListenCtx
 {
     u_int16_t port;
     std::string addr;
+    bool operator==(const ListenCtx &other) const
+    {
+        return this->port == other.port && this->addr == other.addr;
+    }
+    bool operator!=(const ListenCtx &other) const
+    {
+        return !(*this == other);
+    }
 };
 
 class Server : public BaseBlock
 {
   private:
-    ListenCtx _listen;
+    std::vector<ListenCtx> _listens;
     std::vector<std::string> _serverNames;
     std::string _root;
-    std::vector<std::string> _indexFiles;
 
     // Location Variable is yet to be defiend until Amjad implements it.
     bool validatePort(u_int16_t port) const;
@@ -30,9 +37,9 @@ class Server : public BaseBlock
   public:
     Server();
     ~Server() {};
-    const ListenCtx &getListen() const;
+    const std::vector<ListenCtx> &getListens() const;
     const std::vector<std::string> &getServerNames() const;
-    void setListen(u_int16_t port = 80, const std::string &addr = "0.0.0.0");
+    void insertListen(u_int16_t port = 80, const std::string &addr = "0.0.0.0");
     void insertServerNames(const std::string &serverName);
     void setRoot(const std::string &root = "pages/");
     const std::string &getRoot() const;
