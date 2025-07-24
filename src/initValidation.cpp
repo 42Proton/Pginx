@@ -35,6 +35,6 @@ std::string initValidation(int argc, char **argv)
     std::string inputFile = checkInput(argc, argv);
 
     if (inputFile.empty() || checkValidExt(inputFile))
-        throw CustomExceptions::InititalaizingException();
+        throw CommonExceptions::InititalaizingException();
     return (inputFile);
 }

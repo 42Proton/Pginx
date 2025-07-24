@@ -3,9 +3,9 @@ SRCS=\
 		utils.cpp\
 		initValidation.cpp
 MODELS=\
-		CustomExceptions.cpp\
+		CommonExceptions.cpp\
 		Server.cpp\
-		AServer.cpp\
+		BaseBlock.cpp\
 		ServerContainer.cpp
 TEMPLATES=\
 

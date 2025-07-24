@@ -4,11 +4,11 @@
 int main(int argc, char **argv)
 {
     try
-    {
+{    
         std::ifstream inputFile((initValidation(argc, argv)).c_str());
 
         if (!inputFile.is_open())
-            throw CustomExceptions::OpenFileException();
+            throw CommonExceptions::OpenFileException();
     }
     catch (std::exception &e)
     {
