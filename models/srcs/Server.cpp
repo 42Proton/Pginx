@@ -3,8 +3,8 @@
 Server::Server() : BaseBlock()
 {
     this->_serverNames.push_back("");
-    setRoot("pages/");
-    setListen(80, "0.0.0.0");
+    setRoot();
+    setListen();
 }
 
 bool Server::validatePort(u_int16_t port) const
