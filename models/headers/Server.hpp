@@ -12,21 +12,26 @@
 struct ListenCtx
 {
     u_int16_t port;
-    std::string interface;
+    std::string addr;
 };
 
 class Server : public BaseBlock
 {
   private:
-    std::vector<ListenCtx> _listens;
-    std::string _serverName;
+    ListenCtx _listen;
+    std::vector<std::string> _serverNames;
+    std::string _root;
+    std::vector<std::string> _indexFiles;
+
+    bool validatePort(u_int16_t port) const;
+    bool validateAddress(const std::string &addr) const;
 
   public:
     Server();
-    const std::vector<ListenCtx> &getListens() const;
-    const std::string &getServerName() const;
-    void setListens(const std::vector<ListenCtx> &listens);
-    void setServerName(const std::string &serverName);
+    const ListenCtx &getListen() const;
+    const std::vector<std::string> &getServerNames() const;
+    void setListen(u_int16_t port, const std::string &addr);
+    void insertServerNames(const std::string &serverName);
 };
 
 #endif
