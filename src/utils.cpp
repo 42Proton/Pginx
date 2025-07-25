@@ -62,7 +62,8 @@ std::vector<std::string> split(const std::string &str, const std::string &delimi
 
 const char& str_back(const std::string& str)
 {
+    static const char nullChar = '\0';
     if (str.empty())
-        return str[0];
+        return nullChar;
     return str[str.size() - 1];
 }

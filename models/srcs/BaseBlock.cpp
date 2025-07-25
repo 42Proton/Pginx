@@ -20,9 +20,10 @@ BaseBlock::BaseBlock(const BaseBlock& obj):
 
 void BaseBlock::setRoot(const std::string& root)
 {
-    if (root[0] != '/')
+    this->_root.clear();
+    if (!root.size() || root[0] != '/')
         this->_root = PGINX_PREFIX;
-    this->_root = root;
+    this->_root.append(root);
     if (str_back(root) != '/')
         this->_root.push_back('/');
 }

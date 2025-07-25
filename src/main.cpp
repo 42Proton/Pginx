@@ -21,7 +21,7 @@ int main(int argc, char **argv)
     // (void)argc;
     // (void)argv;
     // BaseBlock obj;
-    // obj.setRoot("/home/coderx64");
+    // obj.setRoot("");
     // std::cout << obj.getRoot() << std::endl;
     // obj.setReturnData(403);
     // std::string size = "100G";
