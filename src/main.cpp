@@ -1,6 +1,5 @@
 #include <defaults.hpp>
 #include <utils.hpp>
-#include "../models/ServerManager.hpp"
 
 int main(int argc, char **argv)
 {

@@ -7,5 +7,5 @@ const char *CommonExceptions::OpenFileException::what() const throw()
 
 const char *CommonExceptions::InititalaizingException::what() const throw()
 {
-    return "CommonExceptions::InititalaizingException";
+    return "Error while initializing/Checking config file";
 }
