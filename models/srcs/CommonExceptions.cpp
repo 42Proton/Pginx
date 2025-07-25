@@ -22,7 +22,7 @@ const char *CommonExceptions::NotRegularFile::what() const throw()
 
 const char *CommonExceptions::NoAvailablePage::what() const throw()
 {
-    return "no avaliable page";
+    return "no available page";
 }
 
 const char *CommonExceptions::ForbiddenAccess::what() const throw()

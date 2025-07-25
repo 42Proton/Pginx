@@ -22,6 +22,10 @@
 #define KILOBYTE 1024
 #define MEGABYTE 1048576
 #define GIGABYTE 1073741824
+// Units of measure limits
+#define MAX_KILOBYTE 18014398509481984UL
+#define MAX_MEGABYTE 17592186044416UL
+#define MAX_GIGABYTE 17179869184UL
 
 
 std::string initValidation(int argc, char **argv);

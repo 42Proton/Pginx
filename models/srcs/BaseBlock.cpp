@@ -53,21 +53,21 @@ void BaseBlock::setClientMaxBodySize(std::string& sSize)
     }
     this->_clientMaxBodySize = strtoul(sSize.c_str(), &endptr, 10);
     if (*endptr || errno == ERANGE)
-        return;
+        throw CommonExceptions::InvalidValue();
     switch (sizeCategory)
     {
         case 'k':
-            if (this->_clientMaxBodySize > 18014398509481984UL)
+            if (this->_clientMaxBodySize > MAX_KILOBYTE)
                 throw CommonExceptions::InvalidValue();
             this->_clientMaxBodySize *= KILOBYTE;
             return;
         case 'm':
-            if (this->_clientMaxBodySize > 17592186044416UL)
+            if (this->_clientMaxBodySize > MAX_MEGABYTE)
                 throw CommonExceptions::InvalidValue();
             this->_clientMaxBodySize *= MEGABYTE;
             return;
         case 'g':
-            if (this->_clientMaxBodySize > 17179869184UL)
+            if (this->_clientMaxBodySize > MAX_GIGABYTE)
                 throw CommonExceptions::InvalidValue();
             this->_clientMaxBodySize *= GIGABYTE;
             return;
