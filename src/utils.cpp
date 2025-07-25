@@ -59,3 +59,10 @@ std::vector<std::string> split(const std::string &str, const std::string &delimi
 
     return result;
 }
+
+const char& str_back(const std::string& str)
+{
+    if (str.empty())
+        return str[0];
+    return str[str.size() - 1];
+}

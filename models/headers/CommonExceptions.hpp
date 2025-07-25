@@ -19,6 +19,36 @@ class CommonExceptions
       public:
         const char *what() const throw();
     };
+    class InvalidValue : public std::exception
+    {
+      public:
+        const char *what() const throw();
+    };
+    class NotRegularFile : public std::exception
+    {
+      public:
+        const char *what() const throw();
+    };
+    class NoAvailablePage : public std::exception
+    {
+      public:
+        const char *what() const throw();
+    };
+    class ForbiddenAccess : public std::exception
+    {
+      public:
+        const char *what() const throw();
+    };
+    class StatError : public std::exception
+    {
+      public:
+        const char *what() const throw();
+    };
+    class InvalidStatusCode : public std::exception
+    {
+      public:
+        const char *what() const throw();
+    };
 };
 
 #endif
