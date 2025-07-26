@@ -13,8 +13,7 @@ class ServerContainer : public BaseBlock
   public:
     ServerContainer();
     ~ServerContainer();
-    void setServers(const std::vector<Server> &servers);
-    const std::vector<Server> &getServers() const;
+    void insertServer(const Server& server);
 };
 
 #endif
