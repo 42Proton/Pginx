@@ -56,6 +56,8 @@ void BaseBlock::setClientMaxBodySize(std::string& sSize)
         throw CommonExceptions::InvalidValue();
     switch (sizeCategory)
     {
+        case 0:
+            return;
         case 'k':
             if (this->_clientMaxBodySize > MAX_KILOBYTE)
                 throw CommonExceptions::InvalidValue();
@@ -71,6 +73,8 @@ void BaseBlock::setClientMaxBodySize(std::string& sSize)
                 throw CommonExceptions::InvalidValue();
             this->_clientMaxBodySize *= GIGABYTE;
             return;
+        default:
+            throw CommonExceptions::InvalidValue();
     }
 }
 
