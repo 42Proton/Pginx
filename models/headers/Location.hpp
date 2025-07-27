@@ -3,8 +3,9 @@
 
 #include <AccessPermission.hpp>
 #include <utils.hpp>
+#include <BaseBlock.hpp>
 
-class Location
+class Location : public BaseBlock
 {
   private:
     AccessPermission _permission;

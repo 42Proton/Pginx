@@ -1,11 +1,11 @@
 #include "Location.hpp"
 
 // Constructors
-Location::Location()
+Location::Location() : BaseBlock()
 {
 }
 
-Location::Location(const Location &copy)
+Location::Location(const Location &copy) : BaseBlock(copy)
 {
     _permission = copy.getPermission();
 }
