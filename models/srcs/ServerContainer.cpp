@@ -4,12 +4,7 @@ ServerContainer::ServerContainer() {}
 
 ServerContainer::~ServerContainer() {}
 
-void ServerContainer::setServers(const std::vector<Server>& servers)
+void ServerContainer::insertServer(const Server& server)
 {
-	this->_servers = servers;
-}
-
-const std::vector<Server>& ServerContainer::getServers() const
-{
-	return this->_servers;
+	this->_servers.push_back(server);
 }
