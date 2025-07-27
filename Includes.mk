@@ -6,7 +6,10 @@ MODELS=\
 		CommonExceptions.cpp\
 		Server.cpp\
 		BaseBlock.cpp\
-		ServerContainer.cpp
+		ServerContainer.cpp\
+		AccessPermission.cpp\
+		LimitExcept.cpp\
+		Location.cpp
 TEMPLATES=\
 
 HEADERS=$(MODELS:.cpp=.hpp)
