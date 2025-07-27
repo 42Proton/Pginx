@@ -1,6 +1,6 @@
 #include <Server.hpp>
 
-Server::Server() : BaseBlock()
+Server::Server() : BaseBlock(), AccessPermission()
 {
     this->_serverNames.push_back("");
     setRoot();

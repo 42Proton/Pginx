@@ -1,6 +1,7 @@
 #ifndef BLOCKSERVER_HPP
 #define BLOCKSERVER_HPP
 
+#include <AccessPermission.hpp>
 #include <utils.hpp>
 
 class BaseBlock

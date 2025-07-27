@@ -1,6 +1,6 @@
 #include <ServerContainer.hpp>
 
-ServerContainer::ServerContainer() {}
+ServerContainer::ServerContainer() : AccessPermission() {}
 
 ServerContainer::~ServerContainer() {}
 
