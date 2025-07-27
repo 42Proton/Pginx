@@ -5,7 +5,7 @@ LimitExcept::LimitExcept() : AccessPermission()
 {
 }
 
-LimitExcept::LimitExcept(const LimitExcept &copy)
+LimitExcept::LimitExcept(const LimitExcept &copy) : AccessPermission(copy)
 {
     *this = copy;
 }
