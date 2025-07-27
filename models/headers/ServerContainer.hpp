@@ -5,7 +5,7 @@
 #include <Server.hpp>
 #include <utils.hpp>
 
-class ServerContainer : public BaseBlock
+class ServerContainer : public BaseBlock, public AccessPermission
 {
   private:
     std::vector<Server> _servers;
@@ -13,7 +13,7 @@ class ServerContainer : public BaseBlock
   public:
     ServerContainer();
     ~ServerContainer();
-    void insertServer(const Server& server);
+    void insertServer(const Server &server);
 };
 
 #endif
