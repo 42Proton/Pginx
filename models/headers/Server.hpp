@@ -2,6 +2,7 @@
 #define SERVER_HPP
 
 #include <BaseBlock.hpp>
+#include <AccessPermission.hpp>
 
 // Listen Context
 /**
@@ -23,7 +24,7 @@ struct ListenCtx
     }
 };
 
-class Server : public BaseBlock
+class Server : public BaseBlock, public AccessPermission
 {
   private:
     std::vector<ListenCtx> _listens;

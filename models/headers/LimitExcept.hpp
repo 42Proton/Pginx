@@ -4,11 +4,10 @@
 #include <utils.hpp>
 #include <AccessPermission.hpp>
 
-class LimitExcept
+class LimitExcept : public AccessPermission
 {
   private:
     std::set<std::string> _allowedMethods;
-    AccessPermission _premissions;
 
   public:
     // Constructors
@@ -18,14 +17,10 @@ class LimitExcept
     // Destructor
     ~LimitExcept();
 
-    // Operators
-    LimitExcept &operator=(const LimitExcept &assign);
-
     // Setters
-    void setAllowedMethods(const std::string &methods);
+    void setAllowedMethods(const std::set<std::string> &methods);
 
     // Getters
-    const AccessPermission& getPremissions() const;
     const std::set<std::string> &getAllowedMethods() const;
 
     // Memeber funtions

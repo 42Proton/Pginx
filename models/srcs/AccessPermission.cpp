@@ -3,8 +3,6 @@
 // Constructors
 AccessPermission::AccessPermission()
 {
-    _allow = "";
-    _deny = "";
 }
 
 AccessPermission::AccessPermission(const AccessPermission &copy)
@@ -28,34 +26,29 @@ AccessPermission &AccessPermission::operator=(const AccessPermission &assign)
 
 // Setters
 
-void AccessPermission::setDeny(std::string& deny)
+void AccessPermission::insertDeny(std::string &deny)
 {
-    _deny = deny;
+    _deny.insert(deny);
 }
 
-void AccessPermission::setAllow(std::string& allow)
+void AccessPermission::insertAllow(std::string &allow)
 {
-    _allow = allow;
+    _allow.insert(allow);
 }
 
 // Getters
-const std::string& AccessPermission::getAllow() const
+const std::set<std::string> &AccessPermission::getAllow() const
 {
     return _allow;
 }
 
-const std::string& AccessPermission::getDeny() const
+const std::set<std::string> &AccessPermission::getDeny() const
 {
     return _deny;
 }
 
-
-bool  AccessPermission::isIpAccepted(const std::string& Ip) const
+bool AccessPermission::isIpAccepted(const std::string &Ip) const
 {
-    if (Ip == _allow)
-        return true;
-    else if (Ip == _deny || _deny == "any")
-        return false;
-    else
-        return true;
+    (void)Ip;
+    return true;
 }

@@ -3,27 +3,18 @@
 
 #include <AccessPermission.hpp>
 #include <utils.hpp>
-#include <BaseBlock.hpp>
+#include <Server.hpp>
 
-class Location : public BaseBlock
+class Location : public BaseBlock, public AccessPermission
 {
-  private:
-    AccessPermission _permission;
-
   public:
     // Constructors
     Location();
-    Location(const Location &copy);
-    Location(AccessPermission permission);
+    Location(const Location& copy);
+    Location(const Server& parent);
 
     // Destructor
     ~Location();
-
-    // Operators
-    Location &operator=(const Location &assign);
-
-    // Getters / Setters
-    AccessPermission getPermission() const;
 };
 
 #endif

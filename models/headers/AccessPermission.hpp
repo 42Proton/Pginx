@@ -5,9 +5,9 @@
 
 class AccessPermission
 {
-  private:
-    std::string _allow;
-    std::string _deny;
+  protected:
+    std::set<std::string> _allow;
+    std::set<std::string> _deny;
 
   public:
     // Constructors
@@ -21,12 +21,12 @@ class AccessPermission
     AccessPermission &operator=(const AccessPermission &assign);
 
     // Setters
-    void setAllow(std::string &allow);
-    void setDeny(std::string &deny);
+    void insertAllow(std::string &allow);
+    void insertDeny(std::string &deny);
 
     // Getters
-    const std::string &getAllow() const;
-    const std::string &getDeny() const;
+    const std::set<std::string> &getAllow() const;
+    const std::set<std::string> &getDeny() const;
 
     // Memeber functions
     bool  isIpAccepted(const std::string& Ip) const;

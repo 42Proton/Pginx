@@ -1,7 +1,7 @@
 #include <LimitExcept.hpp>
 
 // Constructors
-LimitExcept::LimitExcept()
+LimitExcept::LimitExcept() : AccessPermission()
 {
 }
 
@@ -15,27 +15,13 @@ LimitExcept::~LimitExcept()
 {
 }
 
-// Operators
-LimitExcept &LimitExcept::operator=(const LimitExcept &assign)
-{
-    _allowedMethods = assign.getAllowedMethods();
-    return *this;
-}
-
 // Setters
-void LimitExcept::setAllowedMethods(const std::string &methods)
+void LimitExcept::setAllowedMethods(const std::set<std::string> &methods)
 {
-	std::vector<std::string> tmp = split(methods, " ");
-	_allowedMethods.insert(tmp.begin(), tmp.end());
+	_allowedMethods.insert(methods.begin(), methods.end());
 }
 
 // Getters
-
-const AccessPermission& LimitExcept::getPremissions() const
-{
-	return _premissions;
-}
-
 const std::set<std::string>& LimitExcept::getAllowedMethods() const
 {
 	return _allowedMethods;
