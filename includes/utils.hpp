@@ -7,6 +7,7 @@
 #include <iostream>
 #include <map>
 #include <set>
+#include <deque>
 #include <string>
 #include <limits>
 #include <sys/stat.h>
