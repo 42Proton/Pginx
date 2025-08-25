@@ -16,6 +16,7 @@ enum TokenType {
 struct Token {
     TokenType type;
     std::string value;
+    int quoted;
 };
 
 std::vector<Token> lexer(const std::string& content);

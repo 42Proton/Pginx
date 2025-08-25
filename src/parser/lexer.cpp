@@ -20,6 +20,57 @@ bool isAllDigits(const std::string& s) {
     return !s.empty();
 }
 
+static Token handleQuoted(std::string::const_iterator& it, const std::string& content) {
+    char quoteChar = *it;
+    ++it;
+    std::string buffer;
+
+    while (it != content.end() && *it != quoteChar) {
+        buffer += *it;
+        ++it;
+    }
+    if (it == content.end()) {
+        throw std::runtime_error("Unclosed quote");
+    }
+    ++it;
+
+    Token token;
+    token.type = STRING;
+    token.value = buffer;
+    token.quoted = 1;
+    return token;
+}
+
+static Token handleSymbol(std::string::const_iterator& it) {
+    Token token;
+    token.type = SYMBOL;
+    token.value = std::string(1, *it);
+    token.quoted = 0;
+    ++it;
+    return token;
+}
+
+static Token handleWord(std::string::const_iterator& it, const std::string& content) {
+    std::string buffer;
+    while (it != content.end() && !isspace(*it)
+           && std::string(DEF_SYMBOL).find(*it) == std::string::npos) {
+        buffer += *it;
+        ++it;
+    }
+
+    Token token;
+    if (isAllDigits(buffer))
+        token.type = NUMBER;
+    else if (isKeyword(buffer))
+        token.type = KEYWORD;
+    else
+        token.type = STRING;
+
+    token.value = buffer;
+    token.quoted = 0;
+    return token;
+}
+
 std::vector<Token> lexer(const std::string& content) {
     std::vector<Token> tokens;
     std::string::const_iterator it = content.begin();
@@ -29,41 +80,20 @@ std::vector<Token> lexer(const std::string& content) {
             ++it;
             continue;
         }
-        if (std::string(DEF_SYMBOL).find(*it) != std::string::npos) {
-                Token token;
-                token.type = SYMBOL;
-                token.value = std::string(1, *it);
-                tokens.push_back(token);
-                ++it;
-                continue;
-        }
-        std::string buffer;
-        while (it != content.end() && !isspace(*it) && std::string(DEF_SYMBOL).find(*it) == std::string::npos) {
-            buffer += *it;
-            ++it;
-        }
 
-        Token token;
-        if (isAllDigits(buffer))
-            token.type = NUMBER;
-        else if (isKeyword(buffer))
-            token.type = KEYWORD;
-        else token.type = STRING;
-
-        token.value = buffer;
-        tokens.push_back(token);    
+        if (*it == '"' || *it == '\'') {
+            tokens.push_back(handleQuoted(it, content));
+        }
+        else if (std::string(DEF_SYMBOL).find(*it) != std::string::npos) {
+            tokens.push_back(handleSymbol(it));
+        }
+        else {
+            tokens.push_back(handleWord(it, content));
+        }
     }
     return tokens;
 }
 
-//error checks 
-//1. invalid chars, only these allowed -> , _ , /, . {}, ;
-//2. unclosed quotes
-//3. numbers with letters (only for keywords that take only nbr)
-//4. unclosed scope
-//5. no ; at the end
-
-//tokens is a vector of Token structs
 int isAllowedTokens(const std::vector<Token>& tokens) {
     for (std::vector<Token>::const_iterator it = tokens.begin(); it != tokens.end(); ++it) {
         const std::string& val = it->value;
@@ -83,7 +113,7 @@ int isAllowedTokens(const std::vector<Token>& tokens) {
         else if (it->type == STRING || it->type == KEYWORD) {
             for (size_t i = 0; i < val.size(); i++) {
                 char c = val[i];
-                if (!isalnum(c) && c != '_' && c != '.' && c != '/' && c != '-' && c != '=') {
+                if (!isalnum(c) && c != '_' && c != '.' && c != '/' && c != '-' && c != '=' && it->quoted == 0) {
                     throw std::runtime_error("Invalid identifier: " + val);
                 }
             }
