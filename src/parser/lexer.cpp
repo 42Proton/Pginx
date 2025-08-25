@@ -1,0 +1,101 @@
+#include <string>
+#include <vector>
+#include "parser.hpp"
+#include <iostream>
+#include <stdio.h>
+
+//std::string(1, *it) -> std::string(size_t n, char c)
+//std::string does not have a constructor that takes a single char
+
+bool isKeyword(const std::string& s) {
+    return s == "server" || s == "listen" || s == "root" ||
+           s == "location" || s == "index" || s == "error_page" ||
+           s == "server_name";
+}
+
+bool isAllDigits(const std::string& s) {
+    for (size_t i = 0; i < s.size(); ++i)
+        if (!isdigit(s[i]))
+            return false;
+    return !s.empty();
+}
+
+std::vector<Token> lexer(const std::string& content) {
+    std::vector<Token> tokens;
+    std::string::const_iterator it = content.begin();
+
+    while (it != content.end()) {
+        if (isspace(*it)) {
+            ++it;
+            continue;
+        }
+        if (std::string(DEF_SYMBOL).find(*it) != std::string::npos) {
+                Token token;
+                token.type = SYMBOL;
+                token.value = std::string(1, *it);
+                tokens.push_back(token);
+                ++it;
+                continue;
+        }
+        std::string buffer;
+        while (it != content.end() && !isspace(*it) && std::string(DEF_SYMBOL).find(*it) == std::string::npos) {
+            buffer += *it;
+            ++it;
+        }
+
+        Token token;
+        if (isAllDigits(buffer))
+            token.type = NUMBER;
+        else if (isKeyword(buffer))
+            token.type = KEYWORD;
+        else token.type = STRING;
+
+        token.value = buffer;
+        tokens.push_back(token);    
+    }
+    return tokens;
+}
+
+//error checks 
+//1. invalid chars, only these allowed -> , _ , /, . {}, ;
+//2. unclosed quotes
+//3. numbers with letters (only for keywords that take only nbr)
+//4. unclosed scope
+//5. no ; at the end
+
+//tokens is a vector of Token structs
+int isAllowedTokens(const std::vector<Token>& tokens) {
+    for (std::vector<Token>::const_iterator it = tokens.begin(); it != tokens.end(); ++it) {
+        const std::string& val = it->value;
+
+        if (it->type == SYMBOL) {
+            if (std::string(DEF_SYMBOL).find(val[0]) == std::string::npos) {
+                throw std::runtime_error("Invalid symbol: " + val);
+            }
+        }
+        else if (it->type == NUMBER) {
+            for (size_t i = 0; i < val.size(); i++) {
+                if (!isdigit(val[i])) {
+                    throw std::runtime_error("Invalid number: " + val);
+                }
+            }
+        }
+        else if (it->type == STRING || it->type == KEYWORD) {
+            for (size_t i = 0; i < val.size(); i++) {
+                char c = val[i];
+                if (!isalnum(c) && c != '_' && c != '.' && c != '/' && c != '-' && c != '=') {
+                    throw std::runtime_error("Invalid identifier: " + val);
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+void checks(const std::vector<Token>& tokens) {
+
+    isAllowedTokens(tokens);
+    // later add: checkQuotes(tokens);
+    // later add: checkScopes(tokens);
+    // later add: checkSemicolons(tokens);
+}

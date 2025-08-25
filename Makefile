@@ -1,7 +1,7 @@
 include Includes.mk
 
-CC = c++
-CFLAGS = -Wall -Werror -Wextra -std=c++98 -g  -I./includes -I./templates -I./models/headers
+CXX = c++
+CXXFLAGS = -Wall -Werror -Wextra -std=c++98 -g  -I./includes -I./templates -I./models/headers
 
 MODELS_DR = models
 INCLUDES_DR = includes
@@ -22,11 +22,11 @@ NAME = pginx
 all: $(NAME)
 
 $(NAME): $(MODELS_OBJS) $(SRCS_OBJS)
-	$(CC) $(MODELS_OBJS) $(SRCS_OBJS) $(CFLAGS) -o $(NAME)
+	$(CXX) $(MODELS_OBJS) $(SRCS_OBJS) $(CXXFLAGS) -o $(NAME)
 
 build/%.o:%.cpp  $(HEADERS_SRC)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean: 
 	rm -f  $(MODELS_OBJS) $(SRCS_OBJS)

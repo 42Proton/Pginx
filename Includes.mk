@@ -1,15 +1,10 @@
 SRCS=\
-		main.cpp\
-		utils.cpp\
-		initValidation.cpp
+	parser/main.cpp\
+	parser/lexer.cpp\
+	parser/readFile.cpp
+
 MODELS=\
-		CommonExceptions.cpp\
-		Server.cpp\
-		BaseBlock.cpp\
-		ServerContainer.cpp\
-		AccessPermission.cpp\
-		LimitExcept.cpp\
-		Location.cpp
+		
 TEMPLATES=\
 
 HEADERS=$(MODELS:.cpp=.hpp)
