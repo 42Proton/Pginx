@@ -83,3 +83,4 @@ Flow:
     3. Parser reads lines, recognizes directives (listen, root, location).
     4. Stores them in memory (ServerConfig and LocationConfig objects).
     5. Later, when a client sends an HTTP request, your server looks at the parsed config to decide what to do.
+-------------------------------------------------------------------------------------

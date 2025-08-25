@@ -4,6 +4,6 @@
 class LocationConfig : public BaseConfig {
     private:
         std::string path;
-        std::vector<std::string> Methods;
+        std::vector<std::string> methods;
 
 };
