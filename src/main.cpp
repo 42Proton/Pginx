@@ -1,13 +1,16 @@
 #include <iostream>
-#include "parser.hpp"
-
-int main(int argc, char **argv) {
+#include <parser.hpp>
+#include <utils.hpp>
+int main(int argc, char **argv)
+{
     if (argc != 2)
     {
         std::cerr << "Provide a Configuration file! " << std::endl;
         return 1;
     }
-    try {
+    try
+    {
+        initValidation(argc, argv);
         std::string content = readFile(argv[1]);
         std::vector<Token> tokens = lexer(content);
         checks(tokens);
@@ -15,11 +18,13 @@ int main(int argc, char **argv) {
         // std::cout << content << std::endl;
 
         // Print tokens
-        for (size_t i = 0; i < tokens.size(); ++i) {
+        for (size_t i = 0; i < tokens.size(); ++i)
+        {
             std::cout << "Type: " << tokens[i].type << " Value: " << tokens[i].value << std::endl;
         }
-
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception &e)
+    {
         std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     }
