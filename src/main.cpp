@@ -3,10 +3,13 @@
 #include <utils.hpp>
 int main(int argc, char **argv)
 {
-    if (argc != 2)
-    { // TODO handle Default Values
-        std::cerr << "Provide a Configuration file! " << std::endl;
+    // TODO: handling default values
+    if (argc == 1)
         return 0;
+    if (argc != 2)
+    {
+        std::cerr << "Provide a Configuration file! " << std::endl;
+        return 1;
     }
     try
     {
