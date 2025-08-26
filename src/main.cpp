@@ -4,9 +4,9 @@
 int main(int argc, char **argv)
 {
     if (argc != 2)
-    {
+    { // TODO handle Default Values
         std::cerr << "Provide a Configuration file! " << std::endl;
-        return 1;
+        return 0;
     }
     try
     {
