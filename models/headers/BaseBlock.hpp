@@ -3,6 +3,9 @@
 
 #include <CommonExceptions.hpp>
 #include <utils.hpp>
+
+#define COMMON_ATT "root client_max_body_size error_pages auto_index"
+
 class BaseBlock
 {
   protected:

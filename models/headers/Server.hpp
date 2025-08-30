@@ -2,11 +2,9 @@
 #define SERVER_HPP
 
 #include <BaseBlock.hpp>
-
 // Listen Context
 /**
- *
- *Why not pairs? Simply because we can add to the struct without changing anything in the already existing code.
+ * Why not pairs? Simply because we can add to the struct without changing anything in the already existing code.
  * And naming Convention is used to make it clear that this struct is used for listening purposes.
  */
 struct ListenCtx
@@ -36,6 +34,8 @@ class Server : public BaseBlock
   public:
     Server();
     ~Server() {};
+
+    // Most of these are getters and setters for attributes of Servers
     const std::vector<ListenCtx> &getListens() const;
     const std::vector<std::string> &getServerNames() const;
     void insertListen(u_int16_t port = 80, const std::string &addr = "0.0.0.0");

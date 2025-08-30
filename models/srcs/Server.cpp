@@ -1,5 +1,9 @@
 #include <Server.hpp>
 
+/*
+    You don't need to really understand these things below, refer to the Header file
+*/
+
 Server::Server() : BaseBlock()
 {
     this->_serverNames.push_back("");
