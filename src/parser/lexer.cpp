@@ -4,17 +4,22 @@
 #include <string>
 #include <vector>
 
-// std::string(1, *it) -> std::string(size_t n, char c)
-// std::string does not have a constructor that takes a single char
-
 bool isLevel(const std::string &s)
 {
     return s == "server" || s == "http" || s == "location";
 }
+int isBracket(const std::string &s)
+{
+    if (s == "{")
+        return 1;
+    if (s == "}")
+        return -1;
+    return 0;
+}
 bool isAttribute(const std::string &s)
 {
     return s == "root" || s == "client_max_body_size" || s == "listen" || s == "index" || s == "error_page" ||
-           s == "server_name";
+           s == "server_name" || s == "autoindex" || s == "redirect" || s == "index" || s == "cgi ";
 }
 bool isAllDigits(const std::string &s)
 {
@@ -74,6 +79,8 @@ static Token handleWord(std::string::const_iterator &it, const std::string &cont
         token.type = ATTRIBUTE;
     else if (isLevel(buffer))
         token.type = LEVEL;
+    else if (!isBracket(buffer))
+        token.type = BRACKET;
     else
         token.type = STRING;
 
