@@ -8,14 +8,6 @@ bool isLevel(const std::string &s)
 {
     return s == "server" || s == "http" || s == "location";
 }
-int isBracket(const std::string &s)
-{
-    if (s == "{")
-        return 1;
-    if (s == "}")
-        return -1;
-    return 0;
-}
 bool isAttribute(const std::string &s)
 {
     return s == "root" || s == "client_max_body_size" || s == "listen" || s == "index" || s == "error_page" ||
@@ -79,8 +71,6 @@ static Token handleWord(std::string::const_iterator &it, const std::string &cont
         token.type = ATTRIBUTE;
     else if (isLevel(buffer))
         token.type = LEVEL;
-    else if (!isBracket(buffer))
-        token.type = BRACKET;
     else
         token.type = STRING;
 

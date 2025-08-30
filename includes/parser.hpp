@@ -11,7 +11,6 @@ enum TokenType
     ATTRIBUTE,
     LEVEL,
     KEYWORD,
-    BRACKET,
     NUMBER,
     STRING,
     SYMBOL
