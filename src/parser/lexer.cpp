@@ -71,7 +71,9 @@ static Token handleWord(std::string::const_iterator &it, const std::string &cont
     if (isAllDigits(buffer))
         token.type = NUMBER;
     else if (isAttribute(buffer))
-        token.type = KEYWORD;
+        token.type = ATTRIBUTE;
+    else if (isLevel(buffer))
+        token.type = LEVEL;
     else
         token.type = STRING;
 
