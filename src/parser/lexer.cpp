@@ -1,5 +1,5 @@
-#include "parser.hpp"
 #include <iostream>
+#include <parser.hpp>
 #include <stdio.h>
 #include <string>
 #include <vector>
@@ -7,12 +7,15 @@
 // std::string(1, *it) -> std::string(size_t n, char c)
 // std::string does not have a constructor that takes a single char
 
-bool isKeyword(const std::string &s)
+bool isLevel(const std::string &s)
 {
-    return s == "server" || s == "listen" || s == "root" || s == "location" || s == "index" || s == "error_page" ||
-           s == "server_name" || s == "http";
+    return s == "server" || s == "http" || s == "location";
 }
-
+bool isAttribute(const std::string &s)
+{
+    return s == "root" || s == "client_max_body_size" || s == "listen" || s == "index" || s == "error_page" ||
+           s == "server_name";
+}
 bool isAllDigits(const std::string &s)
 {
     for (size_t i = 0; i < s.size(); ++i)
@@ -67,7 +70,7 @@ static Token handleWord(std::string::const_iterator &it, const std::string &cont
     Token token;
     if (isAllDigits(buffer))
         token.type = NUMBER;
-    else if (isKeyword(buffer))
+    else if (isAttribute(buffer))
         token.type = KEYWORD;
     else
         token.type = STRING;

@@ -15,15 +15,14 @@ void parser(std::vector<Token> tokens)
     if (!expect("http", tokens[0]))
         throw std::runtime_error("Expected 'http'");
 
-    for (size_t i = 0; i < tokens.size(); i++)
+    for (size_t i = 1; i < tokens.size(); i++)
     {
         if (tokens[i].type == KEYWORD)
         {
-            // TODO:
         }
-        if (tokens[i].type == SYMBOL)
+        else if (tokens[i].type == SYMBOL)
         {
-                }
+        }
     }
 }
 
