@@ -92,6 +92,16 @@ std::vector<Token> lexer(const std::string &content)
             continue;
         }
 
+        // Handle comments - skip everything after # until end of line
+        if (*it == '#')
+        {
+            while (it != content.end() && *it != '\n')
+            {
+                ++it;
+            }
+            continue;
+        }
+
         if (*it == '"' || *it == '\'')
         {
             tokens.push_back(handleQuoted(it, content));

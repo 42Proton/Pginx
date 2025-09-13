@@ -1,4 +1,5 @@
 #include <BaseBlock.hpp>
+#include <cerrno>
 
 BaseBlock::BaseBlock()
     : _root(DEFAULT_ROOT_PATH), _returnData(404, ""), _clientMaxBodySize(1048576), _indexFiles(), _errorPages(),
