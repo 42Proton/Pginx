@@ -2,154 +2,165 @@ name: Pginx CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, parser, master ]
   pull_request:
-    branches: [ main, parser, master ]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
-        compiler: [g++, clang++]
-        
+        compiler: [c++, clang++]
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential valgrind clang
-        
-    - name: Verify C++98 Compliance
-      run: |
-        echo "Checking C++98 compliance..."
-        find src/ -name "*.cpp" -o -name "*.hpp" | xargs ${{ matrix.compiler }} -std=c++98 -fsyntax-only -Wall -Werror -Wextra
-        
-    - name: Build with ${{ matrix.compiler }}
-      run: |
-        make clean
-        CXX=${{ matrix.compiler }} make
-        
-    - name: Run Initialization Tests
-      run: |
-        chmod +x Tests/InitTest.sh
-        ./Tests/InitTest.sh
-        
-    - name: Run Core Parser Tests
-      run: |
-        chmod +x Tests/core_tests.sh
-        ./Tests/core_tests.sh
-        
-    - name: Run Error Handling Tests
-      run: |
-        chmod +x Tests/error_tests.sh
-        ./Tests/error_tests.sh
-        
-    - name: Run Memory Leak Tests (Valgrind)
-      run: |
-        echo "Testing with valgrind for memory leaks..."
-        valgrind --leak-check=full --error-exitcode=1 --suppressions=/dev/null ./pginx config/default.conf > /dev/null 2>&1 || echo "Valgrind test completed"
-        
-    - name: Test with Sample Configurations
-      run: |
-        echo "Testing with all sample configurations..."
-        for config in config/*.conf; do
-          if [ -f "$config" ]; then
-            echo "Testing $config..."
-            ./pginx "$config" > /dev/null || echo "Config $config failed"
-          fi
-        done
-        
-    - name: Run Comprehensive Test Suite
-      run: |
-        chmod +x Tests/run_all_tests.sh
-        ./Tests/run_all_tests.sh
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential valgrind clang
+
+      - name: Verify C++98 Compliance
+        run: |
+          echo "Checking C++98 compliance..."
+          find src/ -name "*.cpp" -o -name "*.hpp" | xargs ${{ matrix.compiler }} -std=c++98 -fsyntax-only -Wall -Werror -Wextra
+
+      - name: Build with ${{ matrix.compiler }}
+        run: |
+          make clean
+          CXX=${{ matrix.compiler }} make
+          echo "Build completed, checking executable..."
+          ls -la pginx
+          echo "Testing basic execution..."
+          ./pginx > /dev/null && echo "Basic execution successful" || echo "Basic execution failed"
+          
+      - name: Run Initialization Tests
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Files in current directory:"
+          ls -la
+          echo "Config files:"
+          ls -la config/
+          echo "Making InitTest.sh executable..."
+          chmod +x Tests/InitTest.sh
+          echo "Testing default config manually first:"
+          ./pginx config/default.conf && echo "Manual test passed" || echo "Manual test failed with exit code $?"
+          echo "Running InitTest.sh..."
+          ./Tests/InitTest.sh
+          
+      - name: Run Core Parser Tests
+        run: |
+          chmod +x Tests/core_tests.sh
+          ./Tests/core_tests.sh
+
+      - name: Run Error Handling Tests
+        run: |
+          chmod +x Tests/error_tests.sh
+          ./Tests/error_tests.sh
+
+      - name: Run Memory Leak Tests (Valgrind)
+        run: |
+          echo "Testing with valgrind for memory leaks..."
+          valgrind --leak-check=full --error-exitcode=1 --suppressions=/dev/null ./pginx config/default.conf > /dev/null 2>&1 || echo "Valgrind test completed"
+
+      - name: Test with Sample Configurations
+        run: |
+          echo "Testing with all sample configurations..."
+          for config in config/*.conf; do
+            if [ -f "$config" ]; then
+              echo "Testing $config..."
+              ./pginx "$config" > /dev/null || echo "Config $config failed"
+            fi
+          done
+
+      - name: Run Comprehensive Test Suite
+        run: |
+          chmod +x Tests/run_all_tests.sh
+          ./Tests/run_all_tests.sh
 
   static-analysis:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Install cppcheck
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y cppcheck
-        
-    - name: Run Static Analysis
-      run: |
-        echo "Running static analysis with cppcheck..."
-        cppcheck --enable=all --std=c++98 --suppress=missingIncludeSystem \
-          --suppress=unusedFunction --suppress=unmatchedSuppression \
-          --error-exitcode=1 src/ || echo "Static analysis completed with warnings"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
+
+      - name: Run Static Analysis
+        run: |
+          echo "Running static analysis with cppcheck..."
+          cppcheck --enable=all --std=c++98 --suppress=missingIncludeSystem \
+            --suppress=unusedFunction --suppress=unmatchedSuppression \
+            --error-exitcode=1 src/ || echo "Static analysis completed with warnings"
 
   build-performance:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Performance Build Test
-      run: |
-        echo "Testing build performance..."
-        time make clean
-        time make
-        
-    - name: Parser Performance Test
-      run: |
-        echo "Testing parser performance with large config..."
-        # Create a large config file for performance testing
-        {
-          echo "http {"
-          for i in {1..50}; do
-            echo "  server {"
-            echo "    listen $((8000 + i));"
-            echo "    server_name server$i.example.com;"
-            echo "    root /var/www/server$i;"
-            echo "    client_max_body_size 10M;"
-            echo "    autoindex on;"
-            for j in {1..5}; do
-              echo "    location /path$j {"
-              echo "      root /var/www/server$i/path$j;"
-              echo "      index index.html;"
-              echo "    }"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Performance Build Test
+        run: |
+          echo "Testing build performance..."
+          time make clean
+          time make
+
+      - name: Parser Performance Test
+        run: |
+          echo "Testing parser performance with large config..."
+          # Create a large config file for performance testing
+          {
+            echo "http {"
+            for i in {1..50}; do
+              echo "  server {"
+              echo "    listen $((8000 + i));"
+              echo "    server_name server$i.example.com;"
+              echo "    root /var/www/server$i;"
+              echo "    client_max_body_size 10M;"
+              echo "    autoindex on;"
+              for j in {1..5}; do
+                echo "    location /path$j {"
+                echo "      root /var/www/server$i/path$j;"
+                echo "      index index.html;"
+                echo "    }"
+              done
+              echo "  }"
             done
-            echo "  }"
-          done
-          echo "}"
-        } > large_test.conf
-        
-        echo "Parsing large configuration..."
-        time ./pginx large_test.conf > /dev/null
-        
-        echo "Memory usage test..."
-        /usr/bin/time -v ./pginx large_test.conf > /dev/null 2>&1 || echo "Performance test completed"
-        
-        rm large_test.conf
+            echo "}"
+          } > large_test.conf
+
+          echo "Parsing large configuration..."
+          time ./pginx large_test.conf > /dev/null
+
+          echo "Memory usage test..."
+          /usr/bin/time -v ./pginx large_test.conf > /dev/null 2>&1 || echo "Performance test completed"
+
+          rm large_test.conf
 
   compatibility-test:
     runs-on: ${{ matrix.os }}
-    
+
     strategy:
       matrix:
         os: [ubuntu-20.04, ubuntu-22.04]
-        
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential
-        
-    - name: Test on ${{ matrix.os }}
-      run: |
-        make clean && make
-        echo "Testing basic functionality on ${{ matrix.os }}..."
-        ./pginx config/default.conf > /dev/null || echo "Basic test completed"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+
+      - name: Test on ${{ matrix.os }}
+        run: |
+          make clean && make
+          echo "Testing basic functionality on ${{ matrix.os }}..."
+          ./pginx config/default.conf > /dev/null || echo "Basic test completed"
