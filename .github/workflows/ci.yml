@@ -34,7 +34,7 @@ jobs:
           ls -la pginx
           echo "Testing basic execution..."
           ./pginx > /dev/null && echo "Basic execution successful" || echo "Basic execution failed"
-          
+
       - name: Run Initialization Tests
         run: |
           echo "Current directory: $(pwd)"
@@ -48,7 +48,7 @@ jobs:
           ./pginx config/default.conf && echo "Manual test passed" || echo "Manual test failed with exit code $?"
           echo "Running InitTest.sh..."
           ./Tests/InitTest.sh
-          
+
       - name: Run Core Parser Tests
         run: |
           chmod +x Tests/core_tests.sh
