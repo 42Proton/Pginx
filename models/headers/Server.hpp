@@ -7,6 +7,9 @@
  * Why not pairs? Simply because we can add to the struct without changing anything in the already existing code.
  * And naming Convention is used to make it clear that this struct is used for listening purposes.
  */
+
+
+//This is a helper struct inside Server for storing listen directives
 struct ListenCtx
 {
     u_int16_t port;
@@ -21,6 +24,8 @@ struct ListenCtx
     }
 };
 
+
+//Represents one server { ... } block inside the config.
 class Server : public BaseBlock
 {
   private:

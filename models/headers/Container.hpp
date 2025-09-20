@@ -5,6 +5,7 @@
 #include <Server.hpp>
 #include <utils.hpp>
 
+//This is the top-level container for all servers.
 class Container : public BaseBlock
 {
   private:

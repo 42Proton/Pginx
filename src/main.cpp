@@ -1,6 +1,7 @@
 #include <iostream>
 #include <parser.hpp>
 #include <utils.hpp>
+
 int main(int argc, char **argv)
 {
     // TODO: handling default values
