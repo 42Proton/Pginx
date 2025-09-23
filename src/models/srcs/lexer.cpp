@@ -11,7 +11,7 @@ bool isLevel(const std::string &s)
 bool isAttribute(const std::string &s)
 {
     return s == "root" || s == "client_max_body_size" || s == "listen" || s == "index" || s == "error_page" ||
-           s == "server_name" || s == "autoindex" || s == "redirect" || s == "index" || s == "cgi ";
+           s == "server_name" || s == "autoindex" || s == "redirect" || s == "index" || s == "cgi";
 }
 bool isAllDigits(const std::string &s)
 {
