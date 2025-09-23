@@ -42,10 +42,7 @@ static size_t parseLocationDirective(const std::vector<Token> &tokens, size_t i,
     else
     {
         // Skip semicolons and other tokens
-        if (tokens[i].value == ";")
-            i++;
-        else
-            i++;
+        i++;
     }
     return i;
 }
