@@ -1,24 +1,19 @@
 #include <BaseBlock.hpp>
+#include <cerrno>
 
-BaseBlock::BaseBlock():
-    _root(DEFAULT_ROOT_PATH),
-    _returnData(404, ""),
-    _clientMaxBodySize(1048576),
-    _indexFiles(),
-    _errorPages(),
-    _autoIndex(false)
-{}
+BaseBlock::BaseBlock()
+    : _root(DEFAULT_ROOT_PATH), _returnData(404, ""), _clientMaxBodySize(1048576), _indexFiles(), _errorPages(),
+      _autoIndex(false)
+{
+}
 
-BaseBlock::BaseBlock(const BaseBlock& obj):
-    _root(obj._root),
-    _returnData(obj._returnData),
-    _clientMaxBodySize(obj._clientMaxBodySize),
-    _indexFiles(obj._indexFiles),
-    _errorPages(obj._errorPages),
-    _autoIndex(obj._autoIndex)
-{}
+BaseBlock::BaseBlock(const BaseBlock &obj)
+    : _root(obj._root), _returnData(obj._returnData), _clientMaxBodySize(obj._clientMaxBodySize),
+      _indexFiles(obj._indexFiles), _errorPages(obj._errorPages), _autoIndex(obj._autoIndex)
+{
+}
 
-void BaseBlock::setRoot(const std::string& root)
+void BaseBlock::setRoot(const std::string &root)
 {
     this->_root.clear();
     if (!root.size() || root[0] != '/')
@@ -28,10 +23,7 @@ void BaseBlock::setRoot(const std::string& root)
         this->_root.push_back('/');
 }
 
-void BaseBlock::setReturnData(
-    const u_int16_t code,
-    const std::string& route
-)
+void BaseBlock::setReturnData(const u_int16_t code, const std::string &route)
 {
     if (code > 999)
         throw CommonExceptions::InvalidStatusCode();
@@ -39,7 +31,7 @@ void BaseBlock::setReturnData(
     this->_returnData.second = route;
 }
 
-void BaseBlock::setClientMaxBodySize(std::string& sSize)
+void BaseBlock::setClientMaxBodySize(std::string &sSize)
 {
     char sizeCategory = 0;
     char *endptr;
@@ -56,41 +48,39 @@ void BaseBlock::setClientMaxBodySize(std::string& sSize)
         throw CommonExceptions::InvalidValue();
     switch (sizeCategory)
     {
-        case 0:
-            return;
-        case 'k':
-            if (this->_clientMaxBodySize > MAX_KILOBYTE)
-                throw CommonExceptions::InvalidValue();
-            this->_clientMaxBodySize *= KILOBYTE;
-            return;
-        case 'm':
-            if (this->_clientMaxBodySize > MAX_MEGABYTE)
-                throw CommonExceptions::InvalidValue();
-            this->_clientMaxBodySize *= MEGABYTE;
-            return;
-        case 'g':
-            if (this->_clientMaxBodySize > MAX_GIGABYTE)
-                throw CommonExceptions::InvalidValue();
-            this->_clientMaxBodySize *= GIGABYTE;
-            return;
-        default:
+    case 0:
+        return;
+    case 'k':
+        if (this->_clientMaxBodySize > MAX_KILOBYTE)
             throw CommonExceptions::InvalidValue();
+        this->_clientMaxBodySize *= KILOBYTE;
+        return;
+    case 'm':
+        if (this->_clientMaxBodySize > MAX_MEGABYTE)
+            throw CommonExceptions::InvalidValue();
+        this->_clientMaxBodySize *= MEGABYTE;
+        return;
+    case 'g':
+        if (this->_clientMaxBodySize > MAX_GIGABYTE)
+            throw CommonExceptions::InvalidValue();
+        this->_clientMaxBodySize *= GIGABYTE;
+        return;
+    default:
+        throw CommonExceptions::InvalidValue();
     }
 }
 
-void BaseBlock::insertIndex(const std::vector<std::string>& routes)
+void BaseBlock::insertIndex(const std::vector<std::string> &routes)
 {
     size_t len = routes.size();
     for (size_t i = 0; i < len; i++)
         this->_indexFiles.push_back(routes[i]);
 }
 
-void BaseBlock::insertErrorPage(
-    const std::vector<u_int16_t>& errorCodes,
-    const std::string& errorPage)
+void BaseBlock::insertErrorPage(const std::vector<u_int16_t> &errorCodes, const std::string &errorPage)
 {
     this->_errorPagesCache.insert(errorPage);
-    const std::string& pageRef = *this->_errorPagesCache.find(errorPage);
+    const std::string &pageRef = *this->_errorPagesCache.find(errorPage);
     size_t len = errorCodes.size();
     for (size_t i = 0; i < len; i++)
     {
@@ -105,12 +95,12 @@ void BaseBlock::activateAutoIndex()
     this->_autoIndex = true;
 }
 
-const std::string& BaseBlock::getRoot() const
+const std::string &BaseBlock::getRoot() const
 {
     return this->_root;
 }
 
-const std::pair<u_int16_t, std::string>& BaseBlock::getReturnData() const
+const std::pair<u_int16_t, std::string> &BaseBlock::getReturnData() const
 {
     return this->_returnData;
 }
@@ -153,10 +143,10 @@ const std::string BaseBlock::getIndex() const
 
 const std::string BaseBlock::getErrorPage(const u_int16_t code) const
 {
-    std::map<u_int16_t, const std::string*>::const_iterator cIt = this->_errorPages.find(code);
+    std::map<u_int16_t, const std::string *>::const_iterator cIt = this->_errorPages.find(code);
     if (cIt == this->_errorPages.end())
         throw CommonExceptions::NoAvailablePage();
-    
+
     struct stat statBuf;
     std::string page_path = this->_root + *(*cIt).second;
     if (access(page_path.c_str(), F_OK))

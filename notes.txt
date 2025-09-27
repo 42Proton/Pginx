@@ -1,0 +1,86 @@
+NGINX:
+    proxy: someone or something that acts on behalf of another.
+    so in networking proxy server is a software that sits between a client
+    and a destination server.
+    it receives requests from the client and then forwards them to the real serve ,
+    then sends the response back.
+
+    Client  →  Proxy  →  Server
+    Server  →  Proxy  →  Client
+
+    - Forward Proxy Server:
+        The client hires a proxy to talk to the internet on its behalf.
+        The client knows about the proxy
+        The destination server does not know the real client, it only sees the proxy’s IP
+        Purpose: hide client, control what clients can access, bypass restrictions, caching.
+
+        Client → Forward Proxy → Internet Server
+    
+    - Reverse Proxy:
+        The server hires a proxy to deal with clients on its behalf.
+        The client does not know it’s talking to a proxy — it thinks it’s the real server.
+        Purpose: hide servers, load balancing, SSL termination, caching, security.
+
+        Client → Reverse Proxy → Backend Server(s)
+
+    - Forward proxy: Client hides behind proxy → server sees proxy.
+    - Reverse proxy: Server hides behind proxy → client doesn’t see proxy.
+
+Understanding Web Servers:
+    a web server is an application that allows you to request
+    specific information from a remote computer — and receive that information in a format you expect.
+
+    so we need to enable communication between the user the the remote
+    machine -> HTTP
+    HTTP protocol: HTTP defines how a client (like a browser)
+    asks for a resource, and how the server answers
+
+    TCP is a stream-based protocol, not a message-based one.
+
+🔄 Program Lifecycle of ./webserv config_file
+⚡ Big Picture (Simplified)
+    1. Parse config → know what to serve.
+    2. Open sockets → wait for clients.
+    3. Loop → poll → accept new clients → read requests → build responses → send back.
+    4. Keep alive or close depending on headers.
+    5. Exit when stopped.
+
+1. Program Start:
+    - You run: ./webserv webserv.conf
+    - Your main():
+        1. Opens webserv.conf.
+        2. Parses it (server blocks, ports, locations, error pages).
+        3. Stores everything in C++ objects (ServerConfig, LocationConfig).
+    👉 At this point, your program knows:
+        - Which ports to listen on.
+        - Which files/folders to serve.
+        - Which methods are allowed.
+        - Which error pages to show.
+-------------------------------------------------------------------
+
+2. Setup Sockets:
+    - For each server in config:
+        - Create a TCP socket (socket()).
+        - Bind it to the configured host:port.
+        - Set it to listen (listen()).
+    - Add all sockets to a poll() array (so you can watch multiple sockets at once).
+    👉 Now your program is “listening” for clients.
+
+Webserve notes
+    Phase 1: Config Parser
+        - Implement parsing of webserv.conf.
+        - Store config in C++ classes:
+            ServerConfig (port, host, error pages…)
+            LocationConfig (path, root, methods allowed…)
+        - Make sure you can read a file like NGINX config and store values in memory.
+            👉 Test: run your program and print out config objects.
+
+
+-----------------------------------------------------------------
+Flow:
+    1. User runs ./webserv my_config.conf.
+    2. Your program opens my_config.conf.
+    3. Parser reads lines, recognizes directives (listen, root, location).
+    4. Stores them in memory (ServerConfig and LocationConfig objects).
+    5. Later, when a client sends an HTTP request, your server looks at the parsed config to decide what to do.
+-------------------------------------------------------------------------------------

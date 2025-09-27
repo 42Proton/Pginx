@@ -5,15 +5,16 @@
 #include <Server.hpp>
 #include <utils.hpp>
 
-class ServerContainer : public BaseBlock
+class Container : public BaseBlock
 {
   private:
     std::vector<Server> _servers;
 
   public:
-    ServerContainer();
-    ~ServerContainer();
-    void insertServer(const Server& server);
+    Container();
+    ~Container();
+    void insertServer(const Server &server);
+    const std::vector<Server> &getServers() const;
 };
 
 #endif

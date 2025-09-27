@@ -1,5 +1,9 @@
 #include <Server.hpp>
 
+/*
+    You don't need to really understand these things below, refer to the Header file
+*/
+
 Server::Server() : BaseBlock()
 {
     this->_serverNames.push_back("");
@@ -92,4 +96,43 @@ void Server::setRoot(const std::string &root)
 const std::string &Server::getRoot() const
 {
     return this->_root;
+}
+
+void Server::setIndexFiles(const std::vector<std::string> &indexFiles)
+{
+    this->insertIndex(indexFiles);
+}
+
+const std::vector<std::string> &Server::getIndexFiles() const
+{
+    return this->_indexFiles;
+}
+
+void Server::addLocation(const LocationConfig &location)
+{
+    this->_locations.push_back(location);
+}
+
+const std::vector<LocationConfig> &Server::getLocations() const
+{
+    return this->_locations;
+}
+
+const LocationConfig *Server::findLocation(const std::string &path) const
+{
+    // Find the most specific location that matches the path
+    const LocationConfig *bestMatch = NULL;
+    size_t longestMatch = 0;
+    
+    for (std::vector<LocationConfig>::const_iterator it = _locations.begin(); it != _locations.end(); ++it)
+    {
+        const std::string &locationPath = it->getPath();
+        if (path.find(locationPath) == 0 && locationPath.length() > longestMatch)
+        {
+            bestMatch = &(*it);
+            longestMatch = locationPath.length();
+        }
+    }
+    
+    return bestMatch;
 }

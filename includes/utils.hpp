@@ -5,10 +5,10 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <set>
 #include <string>
-#include <limits>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
@@ -27,10 +27,9 @@
 #define MAX_MEGABYTE 17592186044416UL
 #define MAX_GIGABYTE 17179869184UL
 
-
 std::string initValidation(int argc, char **argv);
 std::vector<std::string> split(const std::string &str, char delimiter);
 std::vector<std::string> split(const std::string &str, const std::string &delimiter);
-const char& str_back(const std::string& str);
+const char &str_back(const std::string &str);
 
 #endif

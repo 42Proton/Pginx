@@ -8,6 +8,7 @@ class CommonExceptions
 {
   private:
     CommonExceptions();
+
   public:
     class OpenFileException : public std::exception
     {

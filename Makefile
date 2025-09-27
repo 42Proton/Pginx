@@ -1,17 +1,17 @@
 include Includes.mk
 
-CC = c++
-CFLAGS = -Wall -Werror -Wextra -std=c++98 -g  -I./includes -I./templates -I./models/headers
+CXX = c++
+CXXFLAGS = -Wall -Werror -Wextra -std=c++98 -g  -I./includes -I./templates -I./src/models/headers
 
-MODELS_DR = models
+MODELS_DR = src
 INCLUDES_DR = includes
 SRCS_DR = src
 TEMPLATES_DIR= templates
 
 TEMPLATES_S= $(addprefix $(TEMPLATES_DIR)/,$(TEMPLATES))
-MODELS_DR_SRC= $(addprefix $(MODELS_DR)/srcs/,$(MODELS))
+MODELS_DR_SRC= $(addprefix $(MODELS_DR)/,$(MODELS))
 SRCS_DR_SRC= $(addprefix $(SRCS_DR)/,$(SRCS))
-HEADERS_SRC= $(addprefix $(MODELS_DR)/headers/,$(HEADERS))
+HEADERS_SRC= $(addprefix $(MODELS_DR)/,$(HEADERS))
 MODELS_OBJS= $(MODELS_DR_SRC:%.cpp=build/%.o)
 SRCS_OBJS= $(SRCS_DR_SRC:%.cpp=build/%.o)
 
@@ -22,11 +22,11 @@ NAME = pginx
 all: $(NAME)
 
 $(NAME): $(MODELS_OBJS) $(SRCS_OBJS)
-	$(CC) $(MODELS_OBJS) $(SRCS_OBJS) $(CFLAGS) -o $(NAME)
+	$(CXX) $(MODELS_OBJS) $(SRCS_OBJS) $(CXXFLAGS) -o $(NAME)
 
 build/%.o:%.cpp  $(HEADERS_SRC)
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean: 
 	rm -f  $(MODELS_OBJS) $(SRCS_OBJS)
