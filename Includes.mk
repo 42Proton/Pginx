@@ -9,7 +9,8 @@ MODELS=\
 	BaseBlock.cpp\
 	CommonExceptions.cpp\
 	Server.cpp\
-	Container.cpp
+	Container.cpp\
+	SocketManager.cpp
 TEMPLATES=\
 
 HEADERS=$(MODELS:.cpp=.hpp)
