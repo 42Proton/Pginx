@@ -2,6 +2,8 @@
 #define SERVER_HPP
 
 #include <BaseBlock.hpp>
+#include <LocationConfig.hpp>
+
 // Listen Context
 /**
  * Why not pairs? Simply because we can add to the struct without changing anything in the already existing code.
@@ -32,6 +34,7 @@ class Server : public BaseBlock
     std::vector<ListenCtx> _listens;
     std::vector<std::string> _serverNames;
     std::string _root;
+    std::vector<LocationConfig> _locations;
 
     // Location Variable is yet to be defiend until Amjad implements it.
     bool validateAddress(const std::string &addr) const;
@@ -49,5 +52,10 @@ class Server : public BaseBlock
     const std::string &getRoot() const;
     void setIndexFiles(const std::vector<std::string> &indexFiles);
     const std::vector<std::string> &getIndexFiles() const;
+    
+    // Location management
+    void addLocation(const LocationConfig &location);
+    const std::vector<LocationConfig> &getLocations() const;
+    const LocationConfig *findLocation(const std::string &path) const;
 };
 #endif

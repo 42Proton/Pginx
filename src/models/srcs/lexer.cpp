@@ -4,9 +4,6 @@
 #include <string>
 #include <vector>
 
-// std::string(1, *it) -> std::string(size_t n, char c)
-// std::string does not have a constructor that takes a single char
-
 bool isLevel(const std::string &s)
 {
     return s == "server" || s == "http" || s == "location";
@@ -14,7 +11,7 @@ bool isLevel(const std::string &s)
 bool isAttribute(const std::string &s)
 {
     return s == "root" || s == "client_max_body_size" || s == "listen" || s == "index" || s == "error_page" ||
-           s == "server_name";
+           s == "server_name" || s == "autoindex" || s == "redirect" || s == "index" || s == "cgi";
 }
 bool isAllDigits(const std::string &s)
 {
@@ -92,6 +89,16 @@ std::vector<Token> lexer(const std::string &content)
         if (isspace(*it))
         {
             ++it;
+            continue;
+        }
+
+        // Handle comments - skip everything after # until end of line
+        if (*it == '#')
+        {
+            while (it != content.end() && *it != '\n')
+            {
+                ++it;
+            }
             continue;
         }
 

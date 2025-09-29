@@ -1,18 +1,67 @@
+#include <Container.hpp>
 #include <iostream>
 #include <parser.hpp>
 #include <utils.hpp>
-#include <SocketManager.hpp>
-#include <Container.hpp>
-#include <Server.hpp>
-#include <sstream>
 
-std::string intToString(int n) {
-    std::stringstream ss;
-    ss << n;
-    return ss.str();
+void printContainer(const Container &container)
+{
+    std::cout << "\n=== PARSED CONFIGURATION ===" << std::endl;
+    std::cout << "Number of servers: " << container.getServers().size() << std::endl;
+
+    for (size_t i = 0; i < container.getServers().size(); ++i)
+    {
+        const Server &server = container.getServers()[i];
+        std::cout << "\n--- Server " << (i + 1) << " ---" << std::endl;
+
+        // Print listen addresses
+        const std::vector<ListenCtx> &listens = server.getListens();
+        std::cout << "Listen addresses (" << listens.size() << "):" << std::endl;
+        for (size_t j = 0; j < listens.size(); ++j)
+        {
+            std::cout << "  " << listens[j].addr << ":" << listens[j].port << std::endl;
+        }
+
+        // Print server names
+        const std::vector<std::string> &serverNames = server.getServerNames();
+        std::cout << "Server names (" << serverNames.size() << "):" << std::endl;
+        for (size_t j = 0; j < serverNames.size(); ++j)
+        {
+            if (!serverNames[j].empty())
+                std::cout << "  " << serverNames[j] << std::endl;
+        }
+
+        // Print root
+        std::cout << "Root: " << server.getRoot() << std::endl;
+
+        // Print client max body size
+        std::cout << "Client max body size: " << server.getClientMaxBodySize() << " bytes" << std::endl;
+
+        // Print auto index
+        std::cout << "Auto index: " << (server.getAutoIndex() ? "on" : "off") << std::endl;
+
+        // Print locations
+        const std::vector<LocationConfig> &locations = server.getLocations();
+        std::cout << "Locations (" << locations.size() << "):" << std::endl;
+        for (size_t j = 0; j < locations.size(); ++j)
+        {
+            const LocationConfig &location = locations[j];
+            std::cout << "  Location: " << location.getPath() << std::endl;
+            std::cout << "    Root: " << location.getRoot() << std::endl;
+            std::cout << "    Auto index: " << (location.getAutoIndex() ? "on" : "off") << std::endl;
+
+            const std::vector<std::string> &methods = location.getMethods();
+            std::cout << "    Allowed methods (" << methods.size() << "): ";
+            for (size_t k = 0; k < methods.size(); ++k)
+            {
+                std::cout << methods[k];
+                if (k < methods.size() - 1)
+                    std::cout << ", ";
+            }
+            std::cout << std::endl;
+        }
+    }
+    std::cout << "=== END CONFIGURATION ===" << std::endl;
 }
-
-
 
 int main(int argc, char **argv)
 {
@@ -31,55 +80,11 @@ int main(int argc, char **argv)
         std::vector<Token> tokens = lexer(content);
         checks(tokens);
 
-        // TODO: Once your parser is complete, replace this section with:
-        // Container container = parser(tokens);
-        // std::vector<Server> servers = container.getServers(); // You'll need to add this method
-        
-        // For now, create test servers manually (remove this when parser is ready)
-        std::vector<Server> servers;
-        
-        // Create a test server based on your config
-        Server testServer;
-        testServer.insertListen(8080, "127.0.0.1");
-        testServer.insertServerNames("localhost");
-        testServer.setRoot("/usr/share/nginx/html");
-        servers.push_back(testServer);
-        
-        // Convert servers to socket info
-        std::vector<ServerSocketInfo> socketInfos = convertServersToSocketInfo(servers);
-        
-        // Initialize socket manager
-        SocketManager socketManager;
-        
-        std::cout << "Initializing " << socketInfos.size() << " sockets..." << std::endl;
-        
-        if (socketManager.initSockets(socketInfos)) {
-            std::cout << "✅ All sockets initialized successfully!" << std::endl;
-            
-            // Print socket details
-            const std::vector<int>& sockets = socketManager.getSockets();
-            for (size_t i = 0; i < sockets.size() && i < socketInfos.size(); ++i) {
-                std::cout << "Socket " << i << " (fd=" << sockets[i] 
-                          << ") listening on " << socketInfos[i].host 
-                          << ":" << socketInfos[i].port << std::endl;
-            }
-            
-            // TODO: Add your main server loop here
-            // For now, just keep sockets open briefly for testing
-            std::cout << "Press Enter to shutdown..." << std::endl;
-            std::cin.get();
-            
-        } else {
-            std::cerr << "❌ Failed to initialize sockets!" << std::endl;
-            return 1;
-        }
+        std::cout << "Parsing configuration..." << std::endl;
+        Container container = parser(tokens);
 
-        // Print tokens (for debugging - remove when not needed)
-        std::cout << "\nToken output:" << std::endl;
-        for (size_t i = 0; i < tokens.size(); ++i)
-        {
-            std::cout << "Type: " << tokens[i].type << " Value: " << tokens[i].value << std::endl;
-        }
+        // Print the parsed container contents
+        printContainer(container);
     }
     catch (const std::exception &e)
     {

@@ -15,6 +15,7 @@ class Container : public BaseBlock
     Container();
     ~Container();
     void insertServer(const Server &server);
+    const std::vector<Server> &getServers() const;
 };
 
 #endif

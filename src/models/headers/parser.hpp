@@ -23,9 +23,13 @@ struct Token
     int quoted;
 };
 
+// Forward declaration to avoid circular includes
+class Container;
+
 std::vector<Token> lexer(const std::string &content);
 std::string readFile(const std::string &filename);
 void checks(const std::vector<Token> &tokens);
 int isAllowedTokens(const std::vector<Token> &tokens);
+Container parser(const std::vector<Token> &tokens);
 
 #endif
