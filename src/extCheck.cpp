@@ -1,6 +1,7 @@
 #include <defaults.hpp>
 #include <sstream>
 #include <utils.hpp>
+#include <CommonExceptions.hpp>
 
 static std::string checkInput(int argc, char **argv)
 {

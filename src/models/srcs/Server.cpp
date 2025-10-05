@@ -8,7 +8,6 @@ Server::Server() : BaseBlock()
 {
     this->_serverNames.push_back("");
     setRoot();
-    insertListen();
 }
 
 bool Server::validateAddress(const std::string &addr) const

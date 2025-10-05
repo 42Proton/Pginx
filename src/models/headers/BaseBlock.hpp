@@ -6,7 +6,6 @@
 
 #define COMMON_ATT "root client_max_body_size error_pages auto_index"
 
-
 //base class for all configuration blocks
 //It stores common directives that apply to any block
 class BaseBlock

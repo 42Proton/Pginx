@@ -11,13 +11,9 @@ MODELS=\
 	models/srcs/LocationConfig.cpp\
 	models/srcs/parser.cpp\
 	models/srcs/lexer.cpp\
-	models/srcs/readFile.cpp
+	models/srcs/readFile.cpp\
+	models/srcs/SocketManager.cpp\
 
-	BaseBlock.cpp\
-	CommonExceptions.cpp\
-	Server.cpp\
-	Container.cpp\
-	SocketManager.cpp
 TEMPLATES=\
 
 HEADERS=\
@@ -26,4 +22,5 @@ HEADERS=\
 	models/headers/Server.hpp\
 	models/headers/Container.hpp\
 	models/headers/LocationConfig.hpp\
-	models/headers/parser.hpp
+	models/headers/parser.hpp\
+	models/headers/SocketManager.hpp
