@@ -57,6 +57,7 @@ class Server : public BaseBlock
     void addLocation(const LocationConfig &location);
     const std::vector<LocationConfig> &getLocations() const;
     const LocationConfig *findLocation(const std::string &path) const;
+
 };
 
 #endif

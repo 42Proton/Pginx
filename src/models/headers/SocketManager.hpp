@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <map>
 
 //init socket -> prepare the server so it can accept incoming client connections
 struct ServerSocketInfo {
@@ -21,6 +22,8 @@ class SocketManager {
     private:
         std::vector<int> listeningSockets;
         std::map<int, std::string> requestBuffers;
+        std::map<int, time_t> lastActivity;
+        static const int CLIENT_TIMEOUT = 60;
     
     public:
         SocketManager();
@@ -35,6 +38,8 @@ class SocketManager {
         void handleClients();
         void handleRequest(int readyServerFd, int epoll_fd);
         void acceptNewClient(int readyServerFd, int epoll_fd);
+        void send408(int client_fd);
+        void handleTimeouts(int epoll_fd);
     
 
 };
