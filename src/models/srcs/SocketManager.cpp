@@ -145,11 +145,12 @@ void SocketManager::send408(int client_fd) {
         "HTTP/1.1 408 Request Timeout\r\n"
         "Content-Length: 0\r\n"
         "Connection: close\r\n\r\n";
-
-    send(client_fd, timeout_respond, strlen(timeout_respond), 0);
+    
+    // Use MSG_DONTWAIT to ensure non-blocking send
+    send(client_fd, timeout_respond, strlen(timeout_respond), MSG_DONTWAIT | MSG_NOSIGNAL);
 }
 
-void SocketManager::acceptNewClient(int readyServerFd, int epoll_fd) {
+void SocketManager::acceptNewClient(int readyServerFd, int epfd) {
     int connection_fd = accept(readyServerFd, NULL, NULL);
     if (connection_fd == -1)
         return;
@@ -159,22 +160,23 @@ void SocketManager::acceptNewClient(int readyServerFd, int epoll_fd) {
         return;
     }
     struct epoll_event ev;
-    ev.events = EPOLLIN;
+    ev.events = EPOLLIN | EPOLLOUT;
     ev.data.fd = connection_fd;
 
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, connection_fd, &ev) == -1) {
+    if (epoll_ctl(epfd, EPOLL_CTL_ADD, connection_fd, &ev) == -1) {
         close(connection_fd);
         return;
     }
     std::cout << "Accepted new client fd=" << connection_fd << std::endl;
 }
 
-void SocketManager::handleRequest(int readyServerFd, int epoll_fd) {
+void SocketManager::handleRequest(int readyServerFd, int epfd) {
     char buf[4096];
+
     ssize_t n = recv(readyServerFd, buf, sizeof(buf), 0);
     if (n <= 0) {
         close(readyServerFd);
-        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, readyServerFd, 0);
+        epoll_ctl(epfd, EPOLL_CTL_DEL, readyServerFd, 0);
         requestBuffers.erase(readyServerFd);
         lastActivity.erase(readyServerFd);
         std::cout << "Closed client fd=" << readyServerFd << std::endl;
@@ -186,11 +188,11 @@ void SocketManager::handleRequest(int readyServerFd, int epoll_fd) {
     size_t header_end = requestBuffers[readyServerFd].find("\r\n\r\n");
     if (header_end != std::string::npos) {
         // std::string &rawRequest = requestBuffers[readyServerFd];
-        // std::cout << "Full request from fd=" << readyServerFd
-        //           << ":\n" << requestBuffers[readyServerFd] << std::endl;
+        std::cout << "Full request from fd=" << readyServerFd
+                  << ":\n" << requestBuffers[readyServerFd] << std::endl;
 
         ///TO-DO!
-        //1. parse HTTP request (emaran)
+        //1. parse HTTP request
         // HttpRequest request = parseHttpRequest(rawRequest);
 
         //2. Takes the parsed request and decides what the server should reply:
@@ -204,7 +206,7 @@ void SocketManager::handleRequest(int readyServerFd, int epoll_fd) {
     }
 }
 
-void SocketManager::handleTimeouts(int epoll_fd) {
+void SocketManager::handleTimeouts(int epfd) {
     time_t now = time(NULL);
     std::map<int, time_t>::iterator it = lastActivity.begin();
 
@@ -216,7 +218,7 @@ void SocketManager::handleTimeouts(int epoll_fd) {
         if (!headersComplete && now - it->second >  CLIENT_TIMEOUT) {
             send408(fd);
             close(fd);
-            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, 0);
+            epoll_ctl(epfd, EPOLL_CTL_DEL, fd, 0);
             requestBuffers.erase(fd);
             std::map<int, time_t>::iterator eraseIt = it++;
             lastActivity.erase(eraseIt);
@@ -227,8 +229,8 @@ void SocketManager::handleTimeouts(int epoll_fd) {
 }
 
 void SocketManager::handleClients() {
-    int epoll_fd = epoll_create1(0);
-    if (epoll_fd == -1)
+    int epfd = epoll_create1(0);
+    if (epfd == -1)
         throw std::runtime_error("Failed to create epoll instance");
 
     for (size_t i = 0; i < listeningSockets.size(); ++i) {
@@ -237,12 +239,12 @@ void SocketManager::handleClients() {
         event.events = EPOLLIN;
         event.data.fd = listening_fd;
 
-        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listening_fd, &event) == -1)
+        if (epoll_ctl(epfd, EPOLL_CTL_ADD, listening_fd, &event) == -1)
             throw std::runtime_error("Failed to add server socket to epoll");
     }
     std::vector<struct epoll_event> events(1024);
     while (true) {
-        int n = epoll_wait(epoll_fd, &events[0], events.size(), 1000);
+        int n = epoll_wait(epfd, &events[0], events.size(), 1000);
         if (n == -1) {  
             if (errno == EINTR)
                 continue;    
@@ -252,11 +254,20 @@ void SocketManager::handleClients() {
         for (int i = 0; i < n; ++i) {
             int readyServerFd = events[i].data.fd;
 
+            if (events[i].events & (EPOLLHUP | EPOLLERR)) {
+                std::cerr << "Closing fd " << readyServerFd << " due to EPOLLHUP/EPOLLERR" << std::endl;
+                close(readyServerFd);
+                epoll_ctl(epfd, EPOLL_CTL_DEL, readyServerFd, 0);
+                requestBuffers.erase(readyServerFd);
+                lastActivity.erase(readyServerFd);
+                continue;
+            }
+
             if (isServerSocket(readyServerFd))
-                acceptNewClient(readyServerFd, epoll_fd);
-            else
-                handleRequest(readyServerFd, epoll_fd);
+                acceptNewClient(readyServerFd, epfd);
+            else if (events[i].events & EPOLLIN)
+                handleRequest(readyServerFd, epfd);
         }
-        handleTimeouts(epoll_fd);
+        handleTimeouts(epfd);
     }
 }
