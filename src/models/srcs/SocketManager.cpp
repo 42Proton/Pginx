@@ -140,16 +140,6 @@ bool SocketManager::isServerSocket(int fd) const {
     return false;
 }
 
-void SocketManager::send408(int client_fd) {
-    const char *timeout_respond = 
-        "HTTP/1.1 408 Request Timeout\r\n"
-        "Content-Length: 0\r\n"
-        "Connection: close\r\n\r\n";
-    
-    // Use MSG_DONTWAIT to ensure non-blocking send
-    send(client_fd, timeout_respond, strlen(timeout_respond), MSG_DONTWAIT | MSG_NOSIGNAL);
-}
-
 void SocketManager::acceptNewClient(int readyServerFd, int epfd) {
     int connection_fd = accept(readyServerFd, NULL, NULL);
     if (connection_fd == -1)
@@ -170,6 +160,96 @@ void SocketManager::acceptNewClient(int readyServerFd, int epfd) {
     std::cout << "Accepted new client fd=" << connection_fd << std::endl;
 }
 
+//checks
+bool SocketManager::isRequestTooLarge(int fd) {
+    return requestBuffers[fd].size() > MAX_REQUEST_SIZE;
+}
+
+bool SocketManager::isHeaderTooLarge(int fd) {
+    size_t header_end = requestBuffers[fd].find("\r\n\r\n");
+    if (header_end == std::string::npos)
+        return requestBuffers[fd].size() > MAX_HEADER_SIZE;
+    return false;
+}
+
+bool SocketManager::isRequestLineMalformed(int fd) {
+    size_t line_end = requestBuffers[fd].find("\r\n");
+    if (line_end == std::string::npos)
+        return false; // still incomplete
+
+    std::string request_line = requestBuffers[fd].substr(0, line_end);
+    size_t first_space = request_line.find(' ');
+    size_t last_space = request_line.rfind(' ');
+
+    if (first_space == std::string::npos || last_space == std::string::npos || first_space == last_space)
+        return true; // not three parts
+
+    std::string method = request_line.substr(0, first_space);
+    std::string version = request_line.substr(last_space + 1);
+
+    // Simple check for HTTP version
+    if (version.find("HTTP/1.0") != 0)
+        return true;
+
+    return false;
+}
+
+bool SocketManager::hasNonPrintableCharacters(int fd) {
+    size_t line_end = requestBuffers[fd].find("\r\n");
+    if (line_end == std::string::npos)
+        return false;
+
+    std::string line = requestBuffers[fd].substr(0, line_end);
+    for (size_t i = 0; i < line.size(); ++i) {
+        if (!isprint(line[i]) && !isspace(line[i]))
+            return true;
+    }
+    return false;
+}
+
+bool SocketManager::isBodyTooLarge(int fd) {
+    size_t header_end = requestBuffers[fd].find("\r\n\r\n");
+    if (header_end == std::string::npos)
+        return false; // headers not complete yet, can't check body
+
+    // Extract headers
+    std::string headers = requestBuffers[fd].substr(0, header_end);
+
+    // Find Content-Length
+    size_t content_length = 0;
+    size_t cl_pos = headers.find("Content-Length:");
+    if (cl_pos != std::string::npos) {
+        std::string cl_str = headers.substr(cl_pos + 15); // length of "Content-Length:"
+        std::istringstream iss(cl_str);
+        iss >> content_length;
+    }
+
+    if (content_length > MAX_BODY_SIZE)
+        return true;
+
+    // Check if body already received exceeds content_length or MAX_BODY_SIZE
+    size_t body_received = requestBuffers[fd].size() - (header_end + 4);
+    if (body_received > content_length || body_received > MAX_BODY_SIZE)
+        return true;
+
+    return false;
+}
+
+void SocketManager::sendHttpError(int fd, const std::string &status, int epfd) {
+    std::string response =
+        "HTTP/1.0 " + status + "\r\n"
+        "Content-Length: 0\r\n"
+        "Connection: close\r\n\r\n";
+    
+    sendBuffers[fd] = response;
+
+    // Ensure EPOLLOUT is monitored to send response
+    struct epoll_event ev;
+    ev.events = EPOLLIN | EPOLLOUT;
+    ev.data.fd = fd;
+    epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
+}
+
 void SocketManager::handleRequest(int readyServerFd, int epfd) {
     char buf[4096];
 
@@ -185,6 +265,26 @@ void SocketManager::handleRequest(int readyServerFd, int epfd) {
     
     lastActivity[readyServerFd] = time(NULL);
     requestBuffers[readyServerFd].append(buf, n);
+
+    // Pre-parsing checks
+    if (isRequestTooLarge(readyServerFd)) {
+        sendHttpError(readyServerFd, "413 Payload Too Large", epfd);
+        return;
+    }
+    if (isBodyTooLarge(readyServerFd)) {
+        sendHttpError(readyServerFd, "413 Payload Too Large", epfd);
+        return;
+    }
+    if (isHeaderTooLarge(readyServerFd)) {
+        sendHttpError(readyServerFd, "431 Request Header Fields Too Large", epfd);
+        return;
+    }
+    if (isRequestLineMalformed(readyServerFd) || hasNonPrintableCharacters(readyServerFd)) {
+        sendHttpError(readyServerFd, "400 Bad Request", epfd);
+        return;
+    }
+
+
     size_t header_end = requestBuffers[readyServerFd].find("\r\n\r\n");
     if (header_end != std::string::npos) {
         // std::string &rawRequest = requestBuffers[readyServerFd];
@@ -215,16 +315,43 @@ void SocketManager::handleTimeouts(int epfd) {
         std::string &buf = requestBuffers[fd];
 
         bool headersComplete = (buf.find("\r\n\r\n") != std::string::npos);
+
         if (!headersComplete && now - it->second >  CLIENT_TIMEOUT) {
-            send408(fd);
+            sendHttpError(fd, "408 Request Timeout", epfd);
+            // Ensure epoll monitors EPOLLOUT so we can send safely
+            struct epoll_event ev;
+            ev.events = EPOLLIN | EPOLLOUT;
+            ev.data.fd = fd;
+            epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
+
+            ++it;
+        } else
+            ++it;
+    }
+}
+
+void SocketManager::sendBuffer(int fd, int epfd) {
+    std::map<int, std::string>::iterator it = sendBuffers.find(fd);
+    if (it == sendBuffers.end())
+        return;
+
+    ssize_t sent = send(fd, it->second.c_str(), it->second.size(), MSG_NOSIGNAL | MSG_DONTWAIT);
+    if (sent > 0) {
+        it->second.erase(0, sent);
+        if (it->second.empty()) {
             close(fd);
             epoll_ctl(epfd, EPOLL_CTL_DEL, fd, 0);
             requestBuffers.erase(fd);
-            std::map<int, time_t>::iterator eraseIt = it++;
-            lastActivity.erase(eraseIt);
+            lastActivity.erase(fd);
+            sendBuffers.erase(fd);
         }
-        else
-            ++it;
+    } else if (sent <= 0) {
+        // Connection closed by peer or error occurred
+        close(fd);
+        epoll_ctl(epfd, EPOLL_CTL_DEL, fd, 0);
+        requestBuffers.erase(fd);
+        lastActivity.erase(fd);
+        sendBuffers.erase(fd);
     }
 }
 
@@ -267,6 +394,8 @@ void SocketManager::handleClients() {
                 acceptNewClient(readyServerFd, epfd);
             else if (events[i].events & EPOLLIN)
                 handleRequest(readyServerFd, epfd);
+            if (events[i].events & EPOLLOUT)
+                sendBuffer(readyServerFd, epfd);
         }
         handleTimeouts(epfd);
     }
