@@ -13,6 +13,11 @@ MODELS=\
 	models/srcs/lexer.cpp\
 	models/srcs/readFile.cpp\
 	models/srcs/SocketManager.cpp\
+	models/srcs/HttpUtils.cpp\
+	models/srcs/HttpResponse.cpp\
+	models/srcs/HttpRequest.cpp\
+	models/srcs/HttpRouter.cpp\
+	models/srcs/HttpConnection.cpp\
 
 TEMPLATES=\
 
@@ -23,4 +28,9 @@ HEADERS=\
 	models/headers/Container.hpp\
 	models/headers/LocationConfig.hpp\
 	models/headers/parser.hpp\
-	models/headers/SocketManager.hpp
+	models/headers/SocketManager.hpp\
+	models/headers/HttpUtils.hpp\
+	models/headers/HttpResponse.hpp\
+	models/headers/HttpRequest.hpp\
+	models/headers/HttpRouter.hpp\
+	models/headers/HttpConnection.hpp

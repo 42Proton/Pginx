@@ -188,7 +188,7 @@ bool SocketManager::isRequestLineMalformed(int fd) {
     std::string version = request_line.substr(last_space + 1);
 
     // Simple check for HTTP version
-    if (version.find("HTTP/1.0") != 0)
+    if (version.find("HTTP/1.") != 0)
         return true;
 
     return false;
