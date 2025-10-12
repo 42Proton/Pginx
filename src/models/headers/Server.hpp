@@ -10,8 +10,7 @@
  * And naming Convention is used to make it clear that this struct is used for listening purposes.
  */
 
-
-//This is a helper struct inside Server for storing listen directives
+// This is a helper struct inside Server for storing listen directives
 struct ListenCtx
 {
     u_int16_t port;
@@ -26,8 +25,7 @@ struct ListenCtx
     }
 };
 
-
-//Represents one server { ... } block inside the config.
+// Represents one server { ... } block inside the config.
 class Server : public BaseBlock
 {
   private:
@@ -52,12 +50,11 @@ class Server : public BaseBlock
     const std::string &getRoot() const;
     void setIndexFiles(const std::vector<std::string> &indexFiles);
     const std::vector<std::string> &getIndexFiles() const;
-    
+
     // Location management
     void addLocation(const LocationConfig &location);
     const std::vector<LocationConfig> &getLocations() const;
     const LocationConfig *findLocation(const std::string &path) const;
-
 };
 
 #endif
