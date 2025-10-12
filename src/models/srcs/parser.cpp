@@ -284,7 +284,7 @@ Container parser(const std::vector<Token> &tokens)
             httpBraceLevel--;
             if (httpBraceLevel == 0)
             {
-                break;
+                break; 
             }
         }
 

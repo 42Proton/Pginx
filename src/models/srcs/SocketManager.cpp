@@ -57,24 +57,30 @@ std::vector<ServerSocketInfo> convertServersToSocketInfo(const std::vector<Serve
 }
 
 bool SocketManager::initSockets(const std::vector<ServerSocketInfo>& servers) {
+    std::map<std::string, int> existingSockets;
 
     for (size_t i = 0; i < servers.size(); ++i) {
         const ServerSocketInfo &server = servers[i];
-        
-        struct addrinfo hints, *res;
+        std::string key = server.host + ":" + server.port;
 
+        // Check if this host:port already has a socket
+        if (existingSockets.find(key) != existingSockets.end()) {
+            std::cout << "Reusing existing socket for " << key << " (fd=" 
+                      << existingSockets[key] << ")\n";
+            continue; // Don’t create or bind a new one
+        }
+
+        struct addrinfo hints, *res;
         memset(&hints, 0, sizeof(hints));
         hints.ai_family = AF_UNSPEC;
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_flags = AI_PASSIVE;
 
-        std::string port_str = server.port;
-
         if (getaddrinfo(server.host.empty() ? NULL : server.host.c_str(),
-            port_str.c_str(), &hints, &res) != 0) {
-                std::cerr << "getaddrinfo failed for server " << i << "\n";
-                closeSocket();
-                return false;
+                        server.port.c_str(), &hints, &res) != 0) {
+            std::cerr << "getaddrinfo failed for server " << i << "\n";
+            closeSocket();
+            return false;
         }
 
         int listen_fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -95,12 +101,19 @@ bool SocketManager::initSockets(const std::vector<ServerSocketInfo>& servers) {
         }
 
         if (bind(listen_fd, res->ai_addr, res->ai_addrlen) == -1) {
-            std::cerr << "bind failed for server " << i << ": " << strerror(errno) << "\n";
-            std::cerr << "Trying to bind to " << server.host << ":" << server.port << "\n";
-            close(listen_fd);
-            freeaddrinfo(res);
-            closeSocket();
-            return false;
+            if (errno == EADDRINUSE) {
+                // Someone else already bound it — maybe our earlier server block
+                std::cerr << "Port already in use, reusing existing listener for " << key << "\n";
+                freeaddrinfo(res);
+                close(listen_fd);
+                continue;
+            } else {
+                std::cerr << "bind failed for server " << i << ": " << strerror(errno) << "\n";
+                freeaddrinfo(res);
+                close(listen_fd);
+                closeSocket();
+                return false;
+            }
         }
 
         if (listen(listen_fd, 10) == -1) {
@@ -110,14 +123,17 @@ bool SocketManager::initSockets(const std::vector<ServerSocketInfo>& servers) {
             closeSocket();
             return false;
         }
- 
+
         freeaddrinfo(res);
         listeningSockets.push_back(listen_fd);
+        existingSockets[key] = listen_fd;
 
-        std::cout << "Server " << i << " listening on port " << server.port << " (fd=" << listen_fd << ")\n";
+        std::cout << "Server " << i << " listening on " << key << " (fd=" << listen_fd << ")\n";
     }
+
     return true;
 }
+
 
 const std::vector<int>& SocketManager::getSockets() const {
     return listeningSockets;
@@ -175,19 +191,18 @@ bool SocketManager::isHeaderTooLarge(int fd) {
 bool SocketManager::isRequestLineMalformed(int fd) {
     size_t line_end = requestBuffers[fd].find("\r\n");
     if (line_end == std::string::npos)
-        return false; // still incomplete
+        return false;
 
     std::string request_line = requestBuffers[fd].substr(0, line_end);
     size_t first_space = request_line.find(' ');
     size_t last_space = request_line.rfind(' ');
 
     if (first_space == std::string::npos || last_space == std::string::npos || first_space == last_space)
-        return true; // not three parts
+        return true;
 
     std::string method = request_line.substr(0, first_space);
     std::string version = request_line.substr(last_space + 1);
 
-    // Simple check for HTTP version
     if (version.find("HTTP/1.0") != 0)
         return true;
 
@@ -210,16 +225,15 @@ bool SocketManager::hasNonPrintableCharacters(int fd) {
 bool SocketManager::isBodyTooLarge(int fd) {
     size_t header_end = requestBuffers[fd].find("\r\n\r\n");
     if (header_end == std::string::npos)
-        return false; // headers not complete yet, can't check body
+        return false;
 
-    // Extract headers
     std::string headers = requestBuffers[fd].substr(0, header_end);
 
     // Find Content-Length
     size_t content_length = 0;
     size_t cl_pos = headers.find("Content-Length:");
     if (cl_pos != std::string::npos) {
-        std::string cl_str = headers.substr(cl_pos + 15); // length of "Content-Length:"
+        std::string cl_str = headers.substr(cl_pos + 15);
         std::istringstream iss(cl_str);
         iss >> content_length;
     }
