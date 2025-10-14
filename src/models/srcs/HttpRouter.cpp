@@ -13,7 +13,7 @@ void Router::add(const std::string &method, const std::string &path, HandlerFn h
 bool Router::dispatch(const HttpRequest &req, HttpResponse &res) const
 {
     std::string ml = toLowerStr(req.getMethod());
-    std::map<std::string, std::map<std::string, HandlerFn>>::const_iterator mit = table.find(ml);
+    std::map<std::string, std::map<std::string, HandlerFn> >::const_iterator mit = table.find(ml);
     if (mit == table.end())
         return false;
     std::map<std::string, HandlerFn>::const_iterator pit = mit->second.find(req.getPath());
@@ -26,7 +26,7 @@ bool Router::dispatch(const HttpRequest &req, HttpResponse &res) const
 std::string Router::allowForPath(const std::string &path) const
 {
     std::vector<std::string> methods;
-    for (std::map<std::string, std::map<std::string, HandlerFn>>::const_iterator mit = table.begin();
+    for (std::map<std::string, std::map<std::string, HandlerFn> >::const_iterator mit = table.begin();
          mit != table.end(); ++mit)
     {
         if (mit->second.find(path) != mit->second.end())

@@ -146,7 +146,8 @@ int isAllowedTokens(const std::vector<Token> &tokens)
             for (size_t i = 0; i < val.size(); i++)
             {
                 char c = val[i];
-                if (!isalnum(c) && c != '_' && c != '.' && c != '/' && c != '-' && c != '=' && it->quoted == 0)
+                if (!isalnum(c) && c != '_' && c != '.' && c != '/' && c != '-' && c != '=' && c != ':' &&
+                    it->quoted == 0)
                 {
                     throw std::runtime_error("Invalid identifier: " + val);
                 }

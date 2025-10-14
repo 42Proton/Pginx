@@ -11,7 +11,7 @@ typedef void (*HandlerFn)(const HttpRequest &, HttpResponse &);
 
 class Router
 {
-    std::map<std::string, std::map<std::string, HandlerFn>> table;
+    std::map<std::string, std::map<std::string, HandlerFn> > table;
 
   public:
     void add(const std::string &method, const std::string &path, HandlerFn h);

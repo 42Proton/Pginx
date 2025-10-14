@@ -47,7 +47,8 @@ static size_t parseLocationDirective(const std::vector<Token> &tokens, size_t i,
     return i;
 }
 
-static size_t parseLocation(const std::vector<Token> &tokens, size_t i, Server &server, int &serverBraceLevel, int &httpBraceLevel)
+static size_t parseLocation(const std::vector<Token> &tokens, size_t i, Server &server, int &serverBraceLevel,
+                            int &httpBraceLevel)
 {
     // Parse location block
     if (i < tokens.size())
@@ -120,7 +121,7 @@ static size_t parseErrorPageDirective(const std::vector<Token> &tokens, size_t i
     {
         server.insertErrorPage(errorCodes, errorPage);
     }
-    
+
     return i;
 }
 
@@ -137,18 +138,40 @@ static size_t parseIndexDirective(const std::vector<Token> &tokens, size_t i, Se
     return i;
 }
 
-static size_t parseBasicServerDirective(const std::vector<Token> &tokens, size_t i, Server &server, const std::string &directive)
+static size_t parseBasicServerDirective(const std::vector<Token> &tokens, size_t i, Server &server,
+                                        const std::string &directive)
 {
     if (directive == "listen" && i < tokens.size())
     {
-        // Parse port number from string
-        u_int16_t port = 80; // default
-        if (!tokens[i].value.empty())
+        // Parse all listen addresses/ports until we hit a semicolon
+        while (i < tokens.size() && tokens[i].type != SYMBOL)
         {
-            port = static_cast<u_int16_t>(std::atoi(tokens[i].value.c_str()));
+            std::string listenValue = tokens[i].value;
+            u_int16_t port = 80;          // default
+            std::string addr = "0.0.0.0"; // default
+
+            if (!listenValue.empty())
+            {
+                // Check if format is "address:port" (e.g., "127.0.0.1:3000")
+                size_t colonPos = listenValue.find(':');
+                if (colonPos != std::string::npos)
+                {
+                    // Format: address:port
+                    addr = listenValue.substr(0, colonPos);
+                    std::string portStr = listenValue.substr(colonPos + 1);
+                    port = static_cast<u_int16_t>(std::atoi(portStr.c_str()));
+                    std::cout << "Parsing listen address:port: " << addr << ":" << port << std::endl;
+                }
+                else
+                {
+                    // Format: just port number
+                    port = static_cast<u_int16_t>(std::atoi(listenValue.c_str()));
+                    std::cout << "Parsing listen port: " << port << std::endl;
+                }
+            }
+            server.insertListen(port, addr);
+            i++;
         }
-        server.insertListen(port);
-        i++;
     }
     else if (directive == "server_name" && i < tokens.size())
     {
@@ -177,7 +200,8 @@ static size_t parseBasicServerDirective(const std::vector<Token> &tokens, size_t
     return i;
 }
 
-static size_t parseServerDirective(const std::vector<Token> &tokens, size_t i, Server &server, int &serverBraceLevel, int &httpBraceLevel)
+static size_t parseServerDirective(const std::vector<Token> &tokens, size_t i, Server &server, int &serverBraceLevel,
+                                   int &httpBraceLevel)
 {
     if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL)
     {
