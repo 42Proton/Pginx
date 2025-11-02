@@ -22,14 +22,7 @@ void BaseBlock::setRoot(const std::string &root)
     if (str_back(root) != '/')
         this->_root.push_back('/');
 }
-
-void BaseBlock::setReturnData(const u_int16_t code, const std::string &route)
-{
-    if (code > 999)
-        throw CommonExceptions::InvalidStatusCode();
-    this->_returnData.first = code;
-    this->_returnData.second = route;
-}
+BaseBlock::~BaseBlock() {};
 
 void BaseBlock::setClientMaxBodySize(std::string &sSize)
 {
@@ -70,24 +63,33 @@ void BaseBlock::setClientMaxBodySize(std::string &sSize)
     }
 }
 
-void BaseBlock::insertIndex(const std::vector<std::string> &routes)
-{
-    size_t len = routes.size();
-    for (size_t i = 0; i < len; i++)
-        this->_indexFiles.push_back(routes[i]);
+void BaseBlock::insertIndex(const std::vector<std::string> &indexFiles) {
+    _indexFiles.clear();
+    for (size_t i = 0; i < indexFiles.size(); ++i) {
+        if (!indexFiles[i].empty())
+            _indexFiles.push_back(indexFiles[i]);
+    }
+
+    if (_indexFiles.empty())
+        _indexFiles.push_back("index.html");
 }
 
-void BaseBlock::insertErrorPage(const std::vector<u_int16_t> &errorCodes, const std::string &errorPage)
+static bool isHttpErrorCode(u_int16_t code) {
+    return code >= 300 && code <= 599;
+}
+
+void BaseBlock::insertErrorPage(u_int16_t errorCode, const std::string &errorPage) {
+    if (!isHttpErrorCode(errorCode))
+        throw CommonExceptions::InvalidValue();
+    _errorPages[errorCode] = errorPage;
+}
+
+const std::string *BaseBlock::getErrorPage(const u_int16_t code) const
 {
-    this->_errorPagesCache.insert(errorPage);
-    const std::string &pageRef = *this->_errorPagesCache.find(errorPage);
-    size_t len = errorCodes.size();
-    for (size_t i = 0; i < len; i++)
-    {
-        if (errorCodes[i] < 300 || errorCodes[i] > 599)
-            throw CommonExceptions::InvalidValue();
-        this->_errorPages[errorCodes[i]] = &pageRef;
-    }
+    std::map<u_int16_t, std::string>::const_iterator cIt = this->_errorPages.find(code);
+    if (cIt == this->_errorPages.end())
+        return NULL;
+    return &cIt->second;
 }
 
 void BaseBlock::activateAutoIndex()
@@ -110,55 +112,11 @@ size_t BaseBlock::getClientMaxBodySize() const
     return this->_clientMaxBodySize;
 }
 
-const std::string BaseBlock::getIndex() const
+const std::vector<std::string> &BaseBlock::getIndexFiles() const
 {
-    struct stat statBuf;
-    size_t len = this->_indexFiles.size();
-    std::string currentRoot = this->_root;
-
-    for (size_t i = 0; i < len; i++)
-    {
-        std::string index_path = currentRoot + this->_indexFiles[i];
-        if (access(index_path.c_str(), F_OK))
-            continue;
-        if (stat(index_path.c_str(), &statBuf) == -1)
-            throw CommonExceptions::StatError();
-        if (S_ISDIR(statBuf.st_mode))
-        {
-            currentRoot.append(this->_indexFiles[i]);
-            if (str_back(currentRoot) != '/')
-                currentRoot.push_back('/');
-        }
-        else if (S_ISREG(statBuf.st_mode))
-        {
-            if (access(index_path.c_str(), R_OK))
-                throw CommonExceptions::ForbiddenAccess();
-            return index_path;
-        }
-        else
-            throw CommonExceptions::NotRegularFile();
-    }
-    throw CommonExceptions::NoAvailablePage();
+    return this->_indexFiles;
 }
 
-const std::string BaseBlock::getErrorPage(const u_int16_t code) const
-{
-    std::map<u_int16_t, const std::string *>::const_iterator cIt = this->_errorPages.find(code);
-    if (cIt == this->_errorPages.end())
-        throw CommonExceptions::NoAvailablePage();
-
-    struct stat statBuf;
-    std::string page_path = this->_root + *(*cIt).second;
-    if (access(page_path.c_str(), F_OK))
-        throw CommonExceptions::NoAvailablePage();
-    if (stat(page_path.c_str(), &statBuf) == -1)
-        throw CommonExceptions::StatError();
-    if (!S_ISREG(statBuf.st_mode))
-        throw CommonExceptions::NoAvailablePage();
-    if (access(page_path.c_str(), R_OK))
-        throw CommonExceptions::ForbiddenAccess();
-    return page_path;
-}
 
 bool BaseBlock::getAutoIndex() const
 {

@@ -1,5 +1,9 @@
 #include "SocketManager.hpp"
 #include "Server.hpp"
+#include "HttpParser.hpp"
+#include "HttpResponse.hpp"
+#include "HttpRequest.hpp"
+#include "requestContext.hpp"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -16,10 +20,26 @@
 #include <fcntl.h>
 #include <map>
 
-SocketManager::SocketManager() {}
+//the parentheses () mean default construction.
+SocketManager::SocketManager() 
+    : listeningSockets(),
+      requestBuffers(),
+      lastActivity(),
+      sendBuffers(),
+      serverList(),
+      httpParser(new HttpParser()),
+      responseBuilder(new HttpResponse()) {
+}
+
+// Add this setter to initialize the server list
+void SocketManager::setServers(const std::vector<Server>& servers) {
+    serverList = servers;
+}
 
 SocketManager::~SocketManager() {
     closeSocket();
+    delete httpParser;
+    delete responseBuilder;
 }
 
 std::string initToString(int n) {
@@ -42,17 +62,10 @@ std::vector<ServerSocketInfo> convertServersToSocketInfo(const std::vector<Serve
         }
         for (size_t j = 0; j < listens.size(); ++j) {
             const ListenCtx& listen = listens[j];
-
-            ServerSocketInfo info(
-                listen.addr,
-                initToString(listen.port),
-                serverName
-            );
-            
+            ServerSocketInfo info(listen.addr, initToString(listen.port), serverName);
             socketInfos.push_back(info);
         }
     }
-    
     return socketInfos;
 }
 
@@ -63,77 +76,72 @@ bool SocketManager::initSockets(const std::vector<ServerSocketInfo>& servers) {
         const ServerSocketInfo &server = servers[i];
         std::string key = server.host + ":" + server.port;
 
-        // Check if this host:port already has a socket
-        if (existingSockets.find(key) != existingSockets.end()) {
-            std::cout << "Reusing existing socket for " << key << " (fd=" 
-                      << existingSockets[key] << ")\n";
-            continue; // Don’t create or bind a new one
+        if (existingSockets.count(key)) {
+            std::cout << "Reusing existing socket for " << key
+                      << " (fd=" << existingSockets[key] << ")" << std::endl;
+            continue;
         }
 
-        struct addrinfo hints, *res;
+        struct addrinfo hints;
+        struct addrinfo *res = NULL;
         memset(&hints, 0, sizeof(hints));
         hints.ai_family = AF_UNSPEC;
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_flags = AI_PASSIVE;
 
-        if (getaddrinfo(server.host.empty() ? NULL : server.host.c_str(),
-                        server.port.c_str(), &hints, &res) != 0) {
-            std::cerr << "getaddrinfo failed for server " << i << "\n";
+        //handling the bind address
+        const char* bindHost;
+        if (server.host.empty())
+            bindHost = "0.0.0.0";
+        else
+            bindHost = server.host.c_str();
+
+        if (getaddrinfo(bindHost, server.port.c_str(), &hints, &res) != 0) {
+            std::cerr << "getaddrinfo failed for " << key << std::endl;
             closeSocket();
-            return false;
+            continue;
         }
 
-        int listen_fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-        if (listen_fd == -1) {
-            std::cerr << "socket creation failed for server " << i << "\n";
-            freeaddrinfo(res);
-            closeSocket();
-            return false;
-        }
-
-        int opt = 1;
-        if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
-            std::cerr << "setsockopt failed for server " << i << "\n";
-            close(listen_fd);
-            freeaddrinfo(res);
-            closeSocket();
-            return false;
-        }
-
-        if (bind(listen_fd, res->ai_addr, res->ai_addrlen) == -1) {
-            if (errno == EADDRINUSE) {
-                // Someone else already bound it — maybe our earlier server block
-                std::cerr << "Port already in use, reusing existing listener for " << key << "\n";
-                freeaddrinfo(res);
-                close(listen_fd);
+        int listen_fd = -1;
+        struct addrinfo *p;
+        for (p = res; p != NULL; p = p->ai_next) {
+            listen_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+            if (listen_fd == -1)
                 continue;
-            } else {
-                std::cerr << "bind failed for server " << i << ": " << strerror(errno) << "\n";
-                freeaddrinfo(res);
+
+            int opt = 1;
+            setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+            if (bind(listen_fd, p->ai_addr, p->ai_addrlen) == 0) {
+                if (listen(listen_fd, 10) == -1) {
+                    std::cerr << "listen failed for " << key << std::endl;
+                    close(listen_fd);
+                    listen_fd = -1;
+                }
+                else
+                    break;
+            }
+            else {
                 close(listen_fd);
-                closeSocket();
-                return false;
+                listen_fd = -1;
             }
         }
+        freeaddrinfo(res);
 
-        if (listen(listen_fd, 10) == -1) {
-            std::cerr << "listen failed for server " << i << "\n";
-            close(listen_fd);
-            freeaddrinfo(res);
+        if (listen_fd == -1) {
+            std::cerr << "Failed to bind any address for " << key << std::endl;
             closeSocket();
-            return false;
+            continue;
         }
 
-        freeaddrinfo(res);
         listeningSockets.push_back(listen_fd);
         existingSockets[key] = listen_fd;
 
-        std::cout << "Server " << i << " listening on " << key << " (fd=" << listen_fd << ")\n";
+        std::cout << "Server listening on " << key
+                  << " (fd=" << listen_fd << ")" << std::endl;
     }
-
     return true;
 }
-
 
 const std::vector<int>& SocketManager::getSockets() const {
     return listeningSockets;
@@ -203,7 +211,7 @@ bool SocketManager::isRequestLineMalformed(int fd) {
     std::string method = request_line.substr(0, first_space);
     std::string version = request_line.substr(last_space + 1);
 
-    if (version.find("HTTP/1.0") != 0)
+    if (version != "HTTP/1.0" && version != "HTTP/1.1")
         return true;
 
     return false;
@@ -249,19 +257,193 @@ bool SocketManager::isBodyTooLarge(int fd) {
     return false;
 }
 
-void SocketManager::sendHttpError(int fd, const std::string &status, int epfd) {
-    std::string response =
-        "HTTP/1.0 " + status + "\r\n"
-        "Content-Length: 0\r\n"
-        "Connection: close\r\n\r\n";
-    
-    sendBuffers[fd] = response;
+bool SocketManager::hasInvalidPercentEncoding(int fd) {
+    size_t line_end = requestBuffers[fd].find("\r\n");
+    if (line_end == std::string::npos)
+        return false;
 
-    // Ensure EPOLLOUT is monitored to send response
+    std::string line = requestBuffers[fd].substr(0, line_end);
+    size_t first_space = line.find(' ');
+    size_t last_space = line.rfind(' ');
+    if (first_space == std::string::npos || last_space == std::string::npos || first_space == last_space)
+        return false;
+
+    std::string path = line.substr(first_space + 1, last_space - first_space - 1);
+
+    for (size_t i = 0; i < path.size(); ++i) {
+        if (path[i] == '%') {
+            if (i + 2 >= path.size() || !isxdigit(path[i+1]) || !isxdigit(path[i+2]))
+                return true;
+            i += 2;
+        }
+    }
+    return false;
+}
+
+void SocketManager::sendHttpError(int fd, const std::string &status, int epfd) {
+    int code = atoi(status.c_str());
+
+    Server &server = selectServerForClient(fd);
+    RequestContext ctx(server, NULL);
+
+    std::string body = ctx.getErrorPageContent(code);
+    std::ostringstream res;
+
+    res << "HTTP/1.0 " << status << "\r\n"
+        << "Content-Type: text/html\r\n"
+        << "Content-Length: " << body.size() << "\r\n"
+        << "Connection: close\r\n\r\n"
+        << body;
+
+    sendBuffers[fd] = res.str();
+
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLOUT;
     ev.data.fd = fd;
     epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
+}
+
+Server& SocketManager::selectServerForClient(int clientFd) {
+
+    struct sockaddr_in serverAddr;
+    socklen_t addrlen = sizeof(serverAddr);
+    if (getsockname(clientFd, (struct sockaddr*)&serverAddr, &addrlen) == -1) {
+        return serverList[0];
+    }
+    std::string serverIP = inet_ntoa(serverAddr.sin_addr);
+    u_int16_t serverPort = ntohs(serverAddr.sin_port);
+
+    for (size_t i = 0; i < serverList.size(); ++i) {
+        const std::vector<ListenCtx> &listens = serverList[i].getListens();
+        for (size_t j = 0; j < listens.size(); ++j) {
+            if (listens[j].port == serverPort &&
+                (listens[j].addr == "0.0.0.0" || listens[j].addr == serverIP)) {
+                return serverList[i];
+            }
+        }
+    }
+    return serverList[0];
+}
+
+//dummy full until omran finishes the parsing  
+HttpRequest* SocketManager::fillRequest(const std::string &rawRequest, Server& server) {
+    // std::cout << "=== Raw request ===\n" << rawRequest << "\n=== End ===" << std::endl;
+
+    std::istringstream stream(rawRequest);
+    std::string requestLine;
+
+    // Read the first line: "METHOD /path HTTP/1.1"
+    if (!std::getline(stream, requestLine))
+        return 0; // Malformed or empty
+
+    // Remove trailing '\r'
+    if (!requestLine.empty() && requestLine[requestLine.size() - 1] == '\r')
+        requestLine.erase(requestLine.size() - 1);
+
+    std::istringstream lineStream(requestLine);
+    std::string method, path, version;
+    lineStream >> method >> path >> version;
+
+    if (method.empty() || path.empty() || version.empty())
+        return 0; // Malformed request line
+
+    // Parse query string to get clean path for location matching
+    std::string cleanPath;
+    std::map<std::string, std::string> query;
+    HttpRequest::parseQuery(path, cleanPath, query);
+    
+    // Find matching location for this path
+    const LocationConfig* location = server.findLocation(cleanPath);
+    
+    // Create RequestContext with server and location
+    RequestContext ctx(server, location);
+    
+    // Create appropriate HttpRequest subclass
+    HttpRequest* request = makeRequestByMethod(method, ctx);
+    if (!request)
+        return 0; // Unsupported method
+
+    request->setMethod(method);
+    request->setVersion(version);
+    request->setPath(cleanPath);
+    request->setQuery(query);
+
+    // Parse headers until empty line (CRLF)
+    std::string line;
+    while (std::getline(stream, line)) {
+        if (!line.empty() && line[line.size() - 1] == '\r')
+            line.erase(line.size() - 1);
+        if (line.empty())
+            break;
+
+        std::string key, value;
+        if (HttpRequest::parseHeaderLine(line, key, value))
+            request->addHeader(key, value);
+    }
+
+    // Parse the body (if present)
+    std::string body, chunk;
+    while (std::getline(stream, chunk)) {
+        if (!chunk.empty() && chunk[chunk.size() - 1] == '\r')
+            chunk.erase(chunk.size() - 1);
+        body += chunk;
+        body += "\n";
+    }
+
+    if (!body.empty())
+        request->appendBody(body);
+
+    return request;
+}
+
+void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::string &rawRequest) {
+    Server& myServer = selectServerForClient(readyServerFd);
+
+    //will be replaced by omran part
+    HttpRequest* request = fillRequest(rawRequest, myServer);
+    if (!request) {
+        sendHttpError(readyServerFd, "400 Bad Request", epfd);
+        requestBuffers[readyServerFd].clear();
+        return;
+    }
+     
+    HttpResponse res;
+    request->handle(res);
+    res.setVersion("HTTP/1.0");
+    sendBuffers[readyServerFd] = res.build();
+
+    struct epoll_event ev;
+    ev.events = EPOLLIN | EPOLLOUT;
+    ev.data.fd = readyServerFd;
+    epoll_ctl(epfd, EPOLL_CTL_MOD, readyServerFd, &ev);
+
+    delete request;
+    requestBuffers[readyServerFd].clear();
+}
+
+bool SocketManager::isRequestMalformed(int fd) {
+    return isRequestLineMalformed(fd) 
+        || hasNonPrintableCharacters(fd) 
+        || hasInvalidPercentEncoding(fd);
+}
+
+bool SocketManager::validateRequestSize(int fd, int epfd) {
+    size_t header_end = requestBuffers[fd].find("\r\n\r\n");
+
+    if (header_end == std::string::npos && requestBuffers[fd].size() > MAX_HEADER_SIZE) {
+        sendHttpError(fd, "431 Request Header Fields Too Large", epfd);
+        return false;
+    }
+
+    if (header_end != std::string::npos) {
+        if (requestBuffers[fd].size() > MAX_REQUEST_SIZE || isBodyTooLarge(fd)) {
+            sendHttpError(fd, "413 Payload Too Large", epfd);
+            requestBuffers[fd].clear();
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void SocketManager::handleRequest(int readyServerFd, int epfd) {
@@ -276,49 +458,29 @@ void SocketManager::handleRequest(int readyServerFd, int epfd) {
         std::cout << "Closed client fd=" << readyServerFd << std::endl;
         return;
     }
-    
+
     lastActivity[readyServerFd] = time(NULL);
     requestBuffers[readyServerFd].append(buf, n);
 
-    // Pre-parsing checks
-    if (isRequestTooLarge(readyServerFd)) {
-        sendHttpError(readyServerFd, "413 Payload Too Large", epfd);
-        return;
-    }
-    if (isBodyTooLarge(readyServerFd)) {
-        sendHttpError(readyServerFd, "413 Payload Too Large", epfd);
-        return;
-    }
-    if (isHeaderTooLarge(readyServerFd)) {
-        sendHttpError(readyServerFd, "431 Request Header Fields Too Large", epfd);
-        return;
-    }
-    if (isRequestLineMalformed(readyServerFd) || hasNonPrintableCharacters(readyServerFd)) {
+    // Early malformed request validation
+    if (isRequestMalformed(readyServerFd)) {
         sendHttpError(readyServerFd, "400 Bad Request", epfd);
+        requestBuffers[readyServerFd].clear();
         return;
     }
 
+    // Request size validation
+    if (!validateRequestSize(readyServerFd, epfd))
+        return;
 
+    // If everything looks good and headers are complete, process request
     size_t header_end = requestBuffers[readyServerFd].find("\r\n\r\n");
     if (header_end != std::string::npos) {
-        // std::string &rawRequest = requestBuffers[readyServerFd];
-        std::cout << "Full request from fd=" << readyServerFd
-                  << ":\n" << requestBuffers[readyServerFd] << std::endl;
-
-        ///TO-DO!
-        //1. parse HTTP request
-        // HttpRequest request = parseHttpRequest(rawRequest);
-
-        //2. Takes the parsed request and decides what the server should reply:
-        // std::string response = BuildResponse(request);
-
-        //3. send the response
-        //actually writes the reply to the network.
-        // sendResponse(readyServerFd, response);
-
+        processFullRequest(readyServerFd, epfd, requestBuffers[readyServerFd]);
         requestBuffers[readyServerFd].clear();
     }
 }
+
 
 void SocketManager::handleTimeouts(int epfd) {
     time_t now = time(NULL);
@@ -332,7 +494,6 @@ void SocketManager::handleTimeouts(int epfd) {
 
         if (!headersComplete && now - it->second >  CLIENT_TIMEOUT) {
             sendHttpError(fd, "408 Request Timeout", epfd);
-            // Ensure epoll monitors EPOLLOUT so we can send safely
             struct epoll_event ev;
             ev.events = EPOLLIN | EPOLLOUT;
             ev.data.fd = fd;
@@ -350,17 +511,12 @@ void SocketManager::sendBuffer(int fd, int epfd) {
         return;
 
     ssize_t sent = send(fd, it->second.c_str(), it->second.size(), MSG_NOSIGNAL | MSG_DONTWAIT);
+
     if (sent > 0) {
         it->second.erase(0, sent);
-        if (it->second.empty()) {
-            close(fd);
-            epoll_ctl(epfd, EPOLL_CTL_DEL, fd, 0);
-            requestBuffers.erase(fd);
-            lastActivity.erase(fd);
-            sendBuffers.erase(fd);
-        }
-    } else if (sent <= 0) {
-        // Connection closed by peer or error occurred
+    }
+
+    if (it->second.empty() || sent <= 0) {
         close(fd);
         epoll_ctl(epfd, EPOLL_CTL_DEL, fd, 0);
         requestBuffers.erase(fd);
@@ -403,7 +559,6 @@ void SocketManager::handleClients() {
                 lastActivity.erase(readyServerFd);
                 continue;
             }
-
             if (isServerSocket(readyServerFd))
                 acceptNewClient(readyServerFd, epfd);
             else if (events[i].events & EPOLLIN)
@@ -414,3 +569,4 @@ void SocketManager::handleClients() {
         handleTimeouts(epfd);
     }
 }
+

@@ -1,20 +1,97 @@
 #include "HttpResponse.hpp"
-#include "HttpUtils.hpp"
+#include "HttpRequest.hpp"
+#include "Server.hpp"
+#include <sstream>
+#include <string>
+#include "requestContext.hpp"
 
-HttpResponse::HttpResponse() : status(200), reason("OK") {}
+HttpResponse::HttpResponse() : statusCode(200), statusMessage("OK") {}
 
-void HttpResponse::setHeader(const std::string& k, const std::string& v) {
-    headers[k] = v;
+HttpResponse::~HttpResponse() {}
+
+void HttpResponse::setStatus(int code, const std::string& reason) {
+    statusCode = code;
+    statusMessage = reason;
 }
 
-std::string HttpResponse::serialize(bool headOnly) const {
-    std::string resp = "HTTP/1.1 " + itoa_int(status) + " " + reason + "\r\n";
-    for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it) {
-        resp += it->first + ": " + it->second + "\r\n";
+void HttpResponse::setHeader(const std::string& key, const std::string& value) {
+    headers[key] = value;
+}
+
+void HttpResponse::setBody(const std::string& b) {
+    body = b;
+}
+
+void HttpResponse::setVersion(const std::string &v) {
+    version = v;
+}
+
+std::string HttpResponse::build() const {
+    std::ostringstream response;
+
+    // Start line: HTTP version + status code + message
+    response << version << " " << statusCode << " " << statusMessage << "\r\n";
+
+    // Headers
+    std::map<std::string, std::string>::const_iterator it = headers.begin();
+    for (; it != headers.end(); ++it) {
+        response << it->first << ": " << it->second << "\r\n";
     }
-    resp += "\r\n";
-    if (!headOnly) {
-        resp += body;
+
+    // Blank line separating headers and body
+    response << "\r\n";
+
+    // Body
+    response << body;
+
+    return response.str();
+}
+
+static std::string getStatusMessage(int code) {
+    switch (code) {
+        case 400:
+            return "Bad Request";
+        case 401:
+            return "Unauthorized";
+        case 403:
+            return "Forbidden";
+        case 404:
+            return "Not Found";
+        case 408:
+            return "Request Timeout";
+        case 413:
+            return "Payload Too Large";
+        case 431:
+            return "Request Header Fields Too Large";
+        case 500:
+            return "Internal Server Error";
+        case 501:
+            return "Not Implemented";
+        case 502:
+            return "Bad Gateway";
+        case 503:
+            return "Service Unavailable";
+        case 504:
+            return "Gateway Timeout";
+        default: return "Error";
     }
-    return resp;
+}
+
+void HttpResponse::setErrorFromContext(int code, const RequestContext &ctx) {
+    // Get custom error page content from location (priority) or server block
+    std::string content = ctx.getErrorPageContent(code);
+
+    // Set proper HTTP status code and message
+    setStatus(code, getStatusMessage(code));
+
+    // Set Content-Length header
+    std::ostringstream lenStream;
+    lenStream << content.size();
+    setHeader("Content-Length", lenStream.str());
+
+    // Set Content-Type header
+    setHeader("Content-Type", "text/html");
+    
+    // Set the response body
+    setBody(content);
 }

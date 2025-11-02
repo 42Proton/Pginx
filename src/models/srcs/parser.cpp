@@ -38,6 +38,35 @@ static size_t parseLocationDirective(const std::vector<Token> &tokens, size_t i,
             }
             i++;
         }
+        else if (locationDirective == "error_page" && i < tokens.size())
+        {
+            // Handle error_page in location block
+            std::vector<u_int16_t> errorCodes;
+            std::string errorPage;
+            
+            // Collect error codes
+            while (i < tokens.size() && tokens[i].value != ";" && tokens[i].type == NUMBER)
+            {
+                errorCodes.push_back(static_cast<u_int16_t>(std::atoi(tokens[i].value.c_str())));
+                i++;
+            }
+            
+            // Get the error page path
+            if (i < tokens.size() && tokens[i].value != ";")
+            {
+                errorPage = tokens[i].value;
+                i++;
+            }
+            
+            // Insert each error code separately
+            if (!errorCodes.empty() && !errorPage.empty())
+            {
+                for (size_t j = 0; j < errorCodes.size(); ++j)
+                {
+                    location.insertErrorPage(errorCodes[j], errorPage);
+                }
+            }
+        }
     }
     else
     {
@@ -116,9 +145,13 @@ static size_t parseErrorPageDirective(const std::vector<Token> &tokens, size_t i
         i++;
     }
 
+    // Insert each error code separately using the new single-insert approach
     if (!errorCodes.empty() && !errorPage.empty())
     {
-        server.insertErrorPage(errorCodes, errorPage);
+        for (size_t j = 0; j < errorCodes.size(); ++j)
+        {
+            server.insertErrorPage(errorCodes[j], errorPage);
+        }
     }
     
     return i;

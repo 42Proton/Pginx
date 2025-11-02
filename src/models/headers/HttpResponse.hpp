@@ -4,15 +4,34 @@
 #include <string>
 #include <map>
 
-struct HttpResponse {
-    int status;
-    std::string reason;
-    std::map<std::string, std::string> headers;
-    std::string body;
+// Forward declaration
+class HttpRequest;
+class RequestContext;
 
-    HttpResponse();
-    void setHeader(const std::string& k, const std::string& v);
-    std::string serialize(bool headOnly) const;
+class HttpResponse {
+    private:
+        int statusCode;
+        std::map<std::string, std::string> headers;
+        std::string body;
+        std::string version;
+        std::string statusMessage;
+
+    public:
+        HttpResponse();
+        ~HttpResponse();
+
+        // Main function
+        void setStatus(int code, const std::string& reason);
+        void setHeader(const std::string& key, const std::string& value);
+        void setBody(const std::string& b);
+        void setVersion(const std::string &v);
+
+        std::string build() const;
+        
+        // Error handling methods
+        void setError(int code, const std::string& reason);
+        void setErrorWithCustomPage(int code, const std::string& reason, const std::string& customPageContent);
+        void setErrorFromContext(int code, const RequestContext &ctx);
 };
 
 #endif

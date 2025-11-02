@@ -55,6 +55,7 @@ const std::vector<std::string> &LocationConfig::getMethods() const
     return this->_methods;
 }
 
+//This function checks if a specific HTTP method (like "GET", "POST", "DELETE") is allowed for this location.
 bool LocationConfig::isMethodAllowed(const std::string &method) const
 {
     for (std::vector<std::string>::const_iterator it = _methods.begin(); it != _methods.end(); ++it)

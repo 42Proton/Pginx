@@ -1,7 +1,7 @@
 include Includes.mk
 
 CXX = c++
-CXXFLAGS = -Wall -Werror -Wextra -std=c++98 -g  -I./includes -I./templates -I./src/models/headers
+CXXFLAGS = -Wall -Werror -Wextra -std=c++98 -g3  -I./includes -I./templates -I./src/models/headers
 
 MODELS_DR = src
 INCLUDES_DR = includes
@@ -18,7 +18,7 @@ SRCS_OBJS= $(SRCS_DR_SRC:%.cpp=build/%.o)
 HEADERS_SRC += $(TEMPLATES_S)
 HEADERS_SRC += $(INCLUDES_DR)
 
-NAME = pginx
+NAME = webserv
 all: $(NAME)
 
 $(NAME): $(MODELS_OBJS) $(SRCS_OBJS)

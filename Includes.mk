@@ -16,8 +16,8 @@ MODELS=\
 	models/srcs/HttpUtils.cpp\
 	models/srcs/HttpResponse.cpp\
 	models/srcs/HttpRequest.cpp\
-	models/srcs/HttpRouter.cpp\
-	models/srcs/HttpConnection.cpp\
+	models/srcs/HttpParser.cpp\
+	models/srcs/requestContext.cpp\
 
 TEMPLATES=\
 
@@ -32,5 +32,5 @@ HEADERS=\
 	models/headers/HttpUtils.hpp\
 	models/headers/HttpResponse.hpp\
 	models/headers/HttpRequest.hpp\
-	models/headers/HttpRouter.hpp\
-	models/headers/HttpConnection.hpp
+	models/headers/HttpParser.hpp\
+	models/headers/requestContext.hpp\

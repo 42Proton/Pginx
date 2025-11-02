@@ -11,18 +11,17 @@
  */
 
 // This is a helper struct inside Server for storing listen directives
-struct ListenCtx
-{
-    u_int16_t port;
-    std::string addr;
-    bool operator==(const ListenCtx &other) const
-    {
-        return this->port == other.port && this->addr == other.addr;
-    }
-    bool operator!=(const ListenCtx &other) const
-    {
-        return !(*this == other);
-    }
+struct ListenCtx {
+  u_int16_t port;
+  std::string addr;
+  
+  bool operator==(const ListenCtx &other) const {
+      return this->port == other.port && this->addr == other.addr;
+  }
+  bool operator!=(const ListenCtx &other) const {
+    return !(*this == other);
+  }
+  
 };
 
 // Represents one server { ... } block inside the config.

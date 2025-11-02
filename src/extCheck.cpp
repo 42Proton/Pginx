@@ -32,7 +32,6 @@ static bool checkValidExt(std::string input)
 
 std::string initValidation(int argc, char **argv)
 {
-
     std::string inputFile = checkInput(argc, argv);
 
     if (inputFile.empty() || checkValidExt(inputFile))

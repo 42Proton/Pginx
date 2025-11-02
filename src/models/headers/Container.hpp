@@ -6,8 +6,7 @@
 #include <utils.hpp>
 
 // This is the top-level container for all servers.
-class Container : public BaseBlock
-{
+class Container : public BaseBlock {
   private:
     std::vector<Server> _servers;
     std::set<u_int16_t> _ports;
