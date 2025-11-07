@@ -286,9 +286,20 @@ void SocketManager::sendHttpError(int fd, const std::string &status, int epfd) {
     Server &server = selectServerForClient(fd);
     RequestContext ctx(server, NULL);
 
-    std::string body = ctx.getErrorPageContent(code);
-    std::ostringstream res;
+    std::string body;
+    
+    try {
+        body = ctx.getErrorPageContent(code);
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error while loading error page: " << e.what() << std::endl;
 
+        std::ostringstream fallback;
+        fallback << "<html><body><h1>Error 404</h1></body></html>";
+        body = fallback.str();
+    }
+
+    std::ostringstream res;
     res << "HTTP/1.0 " << status << "\r\n"
         << "Content-Type: text/html\r\n"
         << "Content-Length: " << body.size() << "\r\n"
@@ -403,6 +414,26 @@ void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::s
     HttpRequest* request = fillRequest(rawRequest, myServer);
     if (!request) {
         sendHttpError(readyServerFd, "400 Bad Request", epfd);
+        requestBuffers[readyServerFd].clear();
+        return;
+    }
+    
+    // Validate the request before handling it
+    std::string validationError;
+    if (!request->validate(validationError)) {
+        // Request validation failed
+        HttpResponse res;
+        res.setError(400, "Bad Request");
+        res.setBody("<h1>400 Bad Request</h1><p>" + validationError + "</p>");
+        res.setVersion("HTTP/1.0");
+        sendBuffers[readyServerFd] = res.build();
+        
+        struct epoll_event ev;
+        ev.events = EPOLLIN | EPOLLOUT;
+        ev.data.fd = readyServerFd;
+        epoll_ctl(epfd, EPOLL_CTL_MOD, readyServerFd, &ev);
+        
+        delete request;
         requestBuffers[readyServerFd].clear();
         return;
     }

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POST Request Test Form</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .response.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .response.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .response.info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>POST Request Testing Interface</h1>
+    
+    <!-- Form 1: Simple Text Upload -->
+    <div class="form-container">
+        <h2>1. Simple Text Upload</h2>
+        <form id="textForm">
+            <label for="textContent">Text Content:</label>
+            <textarea id="textContent" name="content" placeholder="Enter text to upload...">Hello from the web form!</textarea>
+            
+            <label for="textFilename">Filename:</label>
+            <input type="text" id="textFilename" name="filename" value="uploaded_text.txt" placeholder="filename.txt">
+            
+            <button type="submit">Upload Text</button>
+        </form>
+        <div id="textResponse" class="response"></div>
+    </div>
+
+    <!-- Form 2: JSON Data -->
+    <div class="form-container">
+        <h2>2. JSON Data Upload</h2>
+        <form id="jsonForm">
+            <label for="jsonContent">JSON Content:</label>
+            <textarea id="jsonContent" name="content" placeholder='{"key": "value"}'>{"name": "test", "timestamp": "2025-11-06", "data": [1, 2, 3]}</textarea>
+            
+            <button type="submit">Send JSON</button>
+        </form>
+        <div id="jsonResponse" class="response"></div>
+    </div>
+
+    <!-- Form 3: Form Data -->
+    <div class="form-container">
+        <h2>3. Form Data (URL Encoded)</h2>
+        <form id="formDataForm">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" value="testuser">
+            
+            <label for="email">Email:</label>
+            <input type="text" id="email" name="email" value="test@example.com">
+            
+            <label for="message">Message:</label>
+            <textarea id="message" name="message">This is a test message</textarea>
+            
+            <button type="submit">Submit Form</button>
+        </form>
+        <div id="formDataResponse" class="response"></div>
+    </div>
+
+    <!-- Form 4: File Upload -->
+    <div class="form-container">
+        <h2>4. File Upload</h2>
+        <form id="fileForm">
+            <label for="fileInput">Choose File:</label>
+            <input type="file" id="fileInput" name="file">
+            
+            <button type="submit">Upload File</button>
+        </form>
+        <div id="fileResponse" class="response"></div>
+    </div>
+
+    <script>
+        const baseURL = 'http://localhost:3000';
+
+        // Helper function to display response
+        function displayResponse(elementId, status, message, type = 'info') {
+            const responseDiv = document.getElementById(elementId);
+            responseDiv.className = `response ${type}`;
+            responseDiv.innerHTML = `<strong>Status:</strong> ${status}<br><pre>${message}</pre>`;
+            responseDiv.style.display = 'block';
+        }
+
+        // Form 1: Simple Text Upload
+        document.getElementById('textForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const content = document.getElementById('textContent').value;
+            const filename = document.getElementById('textFilename').value;
+
+            try {
+                const response = await fetch(`${baseURL}/upload/${filename}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain'
+                    },
+                    body: content
+                });
+
+                const responseText = await response.text();
+                displayResponse(
+                    'textResponse', 
+                    response.status, 
+                    `Response: ${responseText || '(empty)'}`,
+                    response.ok ? 'success' : 'error'
+                );
+            } catch (error) {
+                displayResponse('textResponse', 'Error', error.message, 'error');
+            }
+        });
+
+        // Form 2: JSON Upload
+        document.getElementById('jsonForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const content = document.getElementById('jsonContent').value;
+
+            try {
+                const response = await fetch(`${baseURL}/upload/data.json`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: content
+                });
+
+                const responseText = await response.text();
+                displayResponse(
+                    'jsonResponse', 
+                    response.status, 
+                    `Response: ${responseText || '(empty)'}`,
+                    response.ok ? 'success' : 'error'
+                );
+            } catch (error) {
+                displayResponse('jsonResponse', 'Error', error.message, 'error');
+            }
+        });
+
+        // Form 3: Form Data
+        document.getElementById('formDataForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new URLSearchParams();
+            formData.append('username', document.getElementById('username').value);
+            formData.append('email', document.getElementById('email').value);
+            formData.append('message', document.getElementById('message').value);
+
+            try {
+                const response = await fetch(`${baseURL}/upload/form_data.txt`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: formData.toString()
+                });
+
+                const responseText = await response.text();
+                displayResponse(
+                    'formDataResponse', 
+                    response.status, 
+                    `Response: ${responseText || '(empty)'}`,
+                    response.ok ? 'success' : 'error'
+                );
+            } catch (error) {
+                displayResponse('formDataResponse', 'Error', error.message, 'error');
+            }
+        });
+
+        // Form 4: File Upload
+        document.getElementById('fileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('fileInput');
+            
+            if (!fileInput.files.length) {
+                displayResponse('fileResponse', 'Error', 'Please select a file', 'error');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            
+            try {
+                const response = await fetch(`${baseURL}/upload/${file.name}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': file.type || 'application/octet-stream'
+                    },
+                    body: file
+                });
+
+                const responseText = await response.text();
+                displayResponse(
+                    'fileResponse', 
+                    response.status, 
+                    `File: ${file.name} (${file.size} bytes)\nResponse: ${responseText || '(empty)'}`,
+                    response.ok ? 'success' : 'error'
+                );
+            } catch (error) {
+                displayResponse('fileResponse', 'Error', error.message, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

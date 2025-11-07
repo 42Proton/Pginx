@@ -76,18 +76,13 @@ class GetHeadRequest : public HttpRequest {
         virtual void handle(HttpResponse& res);
 };
 
-class HeadRequest : public HttpRequest {
-    public:
-        HeadRequest(const RequestContext &ctx);
-        virtual ~HeadRequest();
-
-        virtual bool validate(std::string& err) const;
-        virtual void handle(HttpResponse& res);
-};
-
 class PostRequest : public HttpRequest {
+    private:
+        bool isPathSafe(const std::string &path) const;
+        
     public:
-        PostRequest();
+        PostRequest(const RequestContext &ctx);
+        virtual ~PostRequest();
 
         virtual bool validate(std::string& err) const;
         virtual void handle(HttpResponse& res);

@@ -29,6 +29,14 @@ void LocationConfig::setPath(const std::string &path)
     this->_path = path;
 }
 
+void LocationConfig::setUploadDir(const std::string &dir) {
+    _uploadDir = dir; 
+}
+
+const std::string& LocationConfig::getUploadDir() const { 
+    return _uploadDir;
+}
+
 void LocationConfig::addMethod(const std::string &method)
 {
     // Check if method already exists to avoid duplicates

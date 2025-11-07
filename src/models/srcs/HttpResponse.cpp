@@ -77,21 +77,35 @@ static std::string getStatusMessage(int code) {
     }
 }
 
+void HttpResponse::setError(int code, const std::string& reason) {
+    setStatus(code, reason);
+    std::ostringstream content;
+    content << "<html><body><h1>Error " << code << " - " << reason << "</h1></body></html>";
+    setBody(content.str());
+    
+    std::ostringstream lenStream;
+    lenStream << body.size();
+    setHeader("Content-Length", lenStream.str());
+    setHeader("Content-Type", "text/html");
+}
+
 void HttpResponse::setErrorFromContext(int code, const RequestContext &ctx) {
-    // Get custom error page content from location (priority) or server block
-    std::string content = ctx.getErrorPageContent(code);
+    std::string content;
+    
+    try {
+        content = ctx.getErrorPageContent(code);
+    }
+    catch (const std::exception &e) {
+        std::cerr << "Error loading page: " << e.what() << '\n';
+        std::ostringstream fallback;
+        fallback << "<html><body><h1>Error " << code << "</h1></body></html>";
+        content = fallback.str();
+    }
 
-    // Set proper HTTP status code and message
     setStatus(code, getStatusMessage(code));
-
-    // Set Content-Length header
     std::ostringstream lenStream;
     lenStream << content.size();
     setHeader("Content-Length", lenStream.str());
-
-    // Set Content-Type header
     setHeader("Content-Type", "text/html");
-    
-    // Set the response body
     setBody(content);
 }

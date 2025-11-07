@@ -67,6 +67,11 @@ static size_t parseLocationDirective(const std::vector<Token> &tokens, size_t i,
                 }
             }
         }
+        else if (locationDirective == "upload_dir" && i < tokens.size())
+        {
+            location.setUploadDir(tokens[i].value);
+            i++;
+        }
     }
     else
     {

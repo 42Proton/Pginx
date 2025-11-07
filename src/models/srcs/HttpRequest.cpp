@@ -1,14 +1,12 @@
 #include "HttpRequest.hpp"
 #include "HttpUtils.hpp"
+#include "HttpResponse.hpp"
 #include <sys/stat.h>
 #include <fstream>
 #include <sstream>
-#include "HttpResponse.hpp"
+#include <iostream>
 #include <iterator>
-
-#include "HttpRequest.hpp"
-#include "HttpUtils.hpp"
-#include <linux/stat.h>
+#include <ctime>
 
 
 // HttpRequest base class implementation
@@ -130,10 +128,8 @@ bool HttpRequest::parseHeaderLine(const std::string& line, std::string& k, std::
 HttpRequest* makeRequestByMethod(const std::string& method, const RequestContext &ctx) {
     if (method == "GET" || method == "HEAD")
         return new GetHeadRequest(ctx);
-    // if (method == "head")
-    //     return new HeadRequest();
-    // if (method == "post")
-    //     return new PostRequest();
+    if (method == "POST")
+        return new PostRequest(ctx);
     // if (method == "put")
     //     return new PutRequest();
     // if (method == "patch")
@@ -162,6 +158,11 @@ void GetHeadRequest::handle(HttpResponse &res) {
 }
 
 void HttpRequest::handleGetOrHead(HttpResponse &res, bool includeBody) {
+    if (!_ctx.isMethodAllowed("GET") || !_ctx.isMethodAllowed("HEAD")) {
+        res.setErrorFromContext(405, _ctx);
+        return;
+    }
+
     std::string fullPath = _ctx.getFullPath(path);
     struct stat fileStat;
 
@@ -221,3 +222,75 @@ void HttpRequest::handleGetOrHead(HttpResponse &res, bool includeBody) {
         res.setBody(content.str());
 }
 
+//--------------------------POST--------------------------
+bool PostRequest::validate(std::string &err) const {
+    // POST can have empty body for some CGI scenarios
+    if (contentLength() == 0) {
+        err = "Missing body in POST request";
+        return false;
+    }
+    return true;
+}
+
+PostRequest::PostRequest(const RequestContext &ctx) : HttpRequest(ctx) {}
+
+PostRequest::~PostRequest() {}
+
+bool PostRequest::isPathSafe(const std::string &path) const {
+    if (path.find("..") != std::string::npos)
+        return false;
+    return true;
+}
+
+void PostRequest::handle(HttpResponse &res) {
+    if (!_ctx.isMethodAllowed("POST")) {
+        res.setErrorFromContext(405, _ctx);
+        return;
+    }
+
+    // 1. Determine upload directory
+    std::string uploadDir;
+    if (_ctx.location && !_ctx.location->getUploadDir().empty()) {
+        uploadDir = _ctx.location->getUploadDir();
+    } else {
+        uploadDir = _ctx.server.getRoot(); // fallback to server root
+    }
+
+    // 2. Ensure directory ends with '/'
+    if (!uploadDir.empty() && uploadDir[uploadDir.size() - 1] != '/')
+        uploadDir += '/';
+
+    // 3. Build full file path
+    std::string filename = extractFileName(path); // utility to get last part of path
+    
+    // Check if filename is empty (e.g., path was just "/upload" or "/")
+    if (filename.empty()) {
+        // Generate a default filename with timestamp
+        std::time_t now = std::time(0);
+        std::ostringstream oss;
+        oss << "upload_" << now << ".txt";
+        filename = oss.str();
+    }
+    
+    std::string fullPath = uploadDir + filename;
+
+    // 4. Path traversal check
+    if (!isPathSafe(fullPath)) {
+        res.setErrorFromContext(403, _ctx);
+        return;
+    }
+
+    // 5. Attempt to write the body
+    std::ofstream outFile(fullPath.c_str(), std::ios::binary);
+    if (!outFile.is_open()) {
+        res.setErrorFromContext(500, _ctx);
+        return;
+    }
+    outFile << body;
+    outFile.close();
+
+    // 6. Send response
+    res.setStatus(201, "Created");
+    res.setHeader("Content-Length", "0");
+    res.setHeader("Content-Type", "text/plain");
+}

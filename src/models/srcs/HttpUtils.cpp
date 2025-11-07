@@ -106,3 +106,12 @@ bool setNonBlocking(int fd) {
     if (flags == -1) return false;
     return fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0;
 }
+
+std::string extractFileName(const std::string &path) {
+    if (path.empty())
+        return "";
+    size_t pos = path.find_last_of("/\\");
+    if (pos == std::string::npos)
+        return path;
+    return path.substr(pos + 1);
+}

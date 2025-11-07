@@ -21,4 +21,6 @@ std::string urlDecode(const std::string& s);
 // Socket utilities
 bool setNonBlocking(int fd);
 
+std::string extractFileName(const std::string &path);
+
 #endif

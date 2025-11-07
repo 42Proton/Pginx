@@ -108,25 +108,22 @@ const std::string *RequestContext::getErrorPage(const u_int16_t code) const
 }
 
 std::string RequestContext::getErrorPageContent(u_int16_t code) const {
-   
-    std::ifstream file;
     const std::string* pagePath = getErrorPage(code);
-
-    if (pagePath && !pagePath->empty()) {
-        std::string fullErrorPath = getFullPath(*pagePath);
-        file.open(fullErrorPath.c_str(), std::ios::binary);
-        if (file.is_open()) {
-            std::ostringstream content;
-            content << file.rdbuf();
-            return content.str(); // safe to return by value
-        } else {
-            std::cout << "Failed to open error page file: " << fullErrorPath << '\n';
-        }
-    } else {
-        std::cout << "No error page configured for code " << code << '\n';
+    if (!pagePath || pagePath->empty()) {
+        std::ostringstream oss;
+        oss << "No error page configured for code " << code;
+        throw std::runtime_error(oss.str());
     }
-    // fallback
-    std::ostringstream fallback;
-    fallback << "<html><body><h1>Error " << code << "</h1></body></html>";
-    return fallback.str();
+
+    std::string fullErrorPath = getFullPath(*pagePath);
+    std::ifstream file(fullErrorPath.c_str(), std::ios::binary);
+    if (!file.is_open()) {
+        std::ostringstream oss;
+        oss << "Failed to open error page file: " << fullErrorPath;
+        throw std::runtime_error(oss.str());
+    }
+
+    std::ostringstream content;
+    content << file.rdbuf();
+    return content.str();
 }
