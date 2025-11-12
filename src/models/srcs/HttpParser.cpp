@@ -133,13 +133,13 @@ bool HttpParser::isValidVersion(const std::string& version) {
     return version == "HTTP/1.0" || version == "HTTP/1.1";
 }
 
-bool HttpParser::hasError() const {
-    return !lastError.empty();
-}
+// bool HttpParser::hasError() const {
+//     return !lastError.empty();
+// }
 
-std::string HttpParser::getLastError() const {
-    return lastError;
-}
+// std::string HttpParser::getLastError() const {
+//     return lastError;
+// }
 
 void HttpParser::clearError() {
     lastError.clear();

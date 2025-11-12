@@ -248,40 +248,38 @@ void PostRequest::handle(HttpResponse &res) {
         return;
     }
 
-    // 1. Determine upload directory
     std::string uploadDir;
     if (_ctx.location && !_ctx.location->getUploadDir().empty()) {
         uploadDir = _ctx.location->getUploadDir();
     } else {
-        uploadDir = _ctx.server.getRoot(); // fallback to server root
+        uploadDir = _ctx.server.getRoot();
     }
 
-    // 2. Ensure directory ends with '/'
     if (!uploadDir.empty() && uploadDir[uploadDir.size() - 1] != '/')
         uploadDir += '/';
 
-    // 3. Build full file path
-    std::string filename = extractFileName(path); // utility to get last part of path
-    
-    // Check if filename is empty (e.g., path was just "/upload" or "/")
+    std::string filename = extractFileName(path);
     if (filename.empty()) {
-        // Generate a default filename with timestamp
         std::time_t now = std::time(0);
         std::ostringstream oss;
         oss << "upload_" << now << ".txt";
         filename = oss.str();
     }
-    
-    std::string fullPath = uploadDir + filename;
 
-    // 4. Path traversal check
+    std::string fullPath = uploadDir + filename;
     if (!isPathSafe(fullPath)) {
         res.setErrorFromContext(403, _ctx);
         return;
     }
 
-    // 5. Attempt to write the body
-    std::ofstream outFile(fullPath.c_str(), std::ios::binary);
+    bool createdNew = true;
+    std::ifstream checkFile(fullPath.c_str());
+    if (checkFile.good()) {
+        createdNew = false;
+    }
+    checkFile.close();
+
+    std::ofstream outFile(fullPath.c_str(), std::ios::out | std::ios::binary);
     if (!outFile.is_open()) {
         res.setErrorFromContext(500, _ctx);
         return;
@@ -289,8 +287,22 @@ void PostRequest::handle(HttpResponse &res) {
     outFile << body;
     outFile.close();
 
-    // 6. Send response
-    res.setStatus(201, "Created");
-    res.setHeader("Content-Length", "0");
-    res.setHeader("Content-Type", "text/plain");
+    if (createdNew) {
+        res.setStatus(201, "Created");
+        res.setHeader("Content-Length", "0");
+        res.setHeader("Content-Type", "text/plain");
+    } 
+    else {
+        std::ostringstream msg;
+        msg << "File updated successfully: " << filename << "\n";
+        std::string msgStr = msg.str();
+        
+        std::ostringstream len;
+        len << msgStr.size();
+
+        res.setStatus(200, "OK");
+        res.setHeader("Content-Length", len.str());
+        res.setHeader("Content-Type", "text/plain");
+        res.setBody(msgStr);
+    }
 }

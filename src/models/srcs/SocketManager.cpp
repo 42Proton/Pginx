@@ -89,7 +89,6 @@ bool SocketManager::initSockets(const std::vector<ServerSocketInfo>& servers) {
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_flags = AI_PASSIVE;
 
-        //handling the bind address
         const char* bindHost;
         if (server.host.empty())
             bindHost = "0.0.0.0";
@@ -184,7 +183,7 @@ void SocketManager::acceptNewClient(int readyServerFd, int epfd) {
     std::cout << "Accepted new client fd=" << connection_fd << std::endl;
 }
 
-//checks
+//Checks
 bool SocketManager::isRequestTooLarge(int fd) {
     return requestBuffers[fd].size() > MAX_REQUEST_SIZE;
 }

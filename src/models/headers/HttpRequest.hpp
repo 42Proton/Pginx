@@ -10,14 +10,6 @@
 class HttpResponse;
 class Server;
 
-//each HttpRequest subclass is now responsible for building its own
-//response
-// - The server parses the raw HTTP request into a HttpRequest*.
-// - Then it simply calls request->handle(res). Polymorphism ensures the right subclass (GetRequest, PostRequest, etc.) handles it.
-// - This keeps logic for GET, POST, DELETE separated, which is cleaner and easier to extend.
-
-//why we should prevent coying?
-
 class HttpRequest {
     protected:
         const RequestContext &_ctx;
