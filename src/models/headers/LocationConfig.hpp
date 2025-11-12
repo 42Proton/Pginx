@@ -4,8 +4,7 @@
 #include <BaseBlock.hpp>
 #include <vector>
 
-class LocationConfig : public BaseBlock
-{
+class LocationConfig : public BaseBlock {
   private:
     std::string _path;
     std::vector<std::string> _methods;

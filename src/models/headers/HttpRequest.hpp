@@ -10,18 +10,9 @@
 class HttpResponse;
 class Server;
 
-// each HttpRequest subclass is now responsible for building its own
-// response
-//  - The server parses the raw HTTP request into a HttpRequest*.
-//  - Then it simply calls request->handle(res). Polymorphism ensures the right subclass (GetRequest, PostRequest, etc.)
-//  handles it.
-//  - This keeps logic for GET, POST, DELETE separated, which is cleaner and easier to extend.
-
-// why we should prevent coying?
-
 class HttpRequest
 {
-  protected:
+protected:
     const RequestContext &_ctx;
     std::string method;
     std::string path;
@@ -32,12 +23,12 @@ class HttpRequest
 
     void handleGetOrHead(HttpResponse &res, bool includeBody);
 
-  private:
+private:
     // Prevent copying
     HttpRequest(const HttpRequest &other);
     HttpRequest &operator=(const HttpRequest &other);
 
-  public:
+public:
     HttpRequest(const RequestContext &ctx);
     virtual ~HttpRequest();
 
@@ -72,7 +63,7 @@ class HttpRequest
 // Request subclasses
 class GetHeadRequest : public HttpRequest
 {
-  public:
+public:
     GetHeadRequest(const RequestContext &ctx);
     virtual ~GetHeadRequest();
 
@@ -82,10 +73,10 @@ class GetHeadRequest : public HttpRequest
 
 class PostRequest : public HttpRequest
 {
-  private:
+private:
     bool isPathSafe(const std::string &path) const;
 
-  public:
+public:
     PostRequest(const RequestContext &ctx);
     virtual ~PostRequest();
 
@@ -95,7 +86,7 @@ class PostRequest : public HttpRequest
 
 class PutRequest : public HttpRequest
 {
-  public:
+public:
     PutRequest();
     virtual bool validate(std::string &err) const;
     virtual void handle(HttpResponse &res);
@@ -103,7 +94,7 @@ class PutRequest : public HttpRequest
 
 class PatchRequest : public HttpRequest
 {
-  public:
+public:
     PatchRequest();
     virtual bool validate(std::string &err) const;
     virtual void handle(HttpResponse &res);
@@ -111,9 +102,8 @@ class PatchRequest : public HttpRequest
 
 class DeleteRequest : public HttpRequest
 {
-  public:
-    DeleteRequest(const RequestContext &ctx);
-    virtual ~DeleteRequest();
+public:
+    DeleteRequest();
 
     virtual bool validate(std::string &err) const;
     virtual void handle(HttpResponse &res);

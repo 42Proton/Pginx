@@ -4,7 +4,6 @@
 #include <string>
 #include <map>
 
-//later will remove this class it is just for testing 
 class HttpRequest;
 class Server;
 
@@ -30,8 +29,8 @@ class HttpParser {
         HttpRequest* parseRequest(const std::string& rawRequest, Server& server);
         
         // Error handling
-        bool hasError() const;
-        std::string getLastError() const;
+        // bool hasError() const;
+        // std::string getLastError() const;
         void clearError();
 };
 

@@ -25,8 +25,7 @@ struct ListenCtx {
 };
 
 // Represents one server { ... } block inside the config.
-class Server : public BaseBlock
-{
+class Server : public BaseBlock {
   private:
     std::vector<ListenCtx> _listens;
     std::vector<std::string> _serverNames;
@@ -45,7 +44,7 @@ class Server : public BaseBlock
     const std::vector<std::string> &getServerNames() const;
     void insertListen(u_int16_t port = 80, const std::string &addr = "0.0.0.0");
     void insertServerNames(const std::string &serverName);
-    void setRoot(const std::string &root = "pages/");
+    void setRoot(const std::string &root = "www/");
     const std::string &getRoot() const;
     void setIndexFiles(const std::vector<std::string> &indexFiles);
     const std::vector<std::string> &getIndexFiles() const;
