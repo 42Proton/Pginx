@@ -102,14 +102,16 @@ public:
 
 class DeleteRequest : public HttpRequest
 {
+private:
+    bool isPathSafe(const std::string &fullPath) const;
+
 public:
-    DeleteRequest();
+    DeleteRequest(const RequestContext &ctx);
+    virtual ~DeleteRequest();
 
     virtual bool validate(std::string &err) const;
     virtual void handle(HttpResponse &res);
-};
-
-// // Factory function
+}; // // Factory function
 HttpRequest *makeRequestByMethod(const std::string &m, const RequestContext &ctx);
 
 #endif

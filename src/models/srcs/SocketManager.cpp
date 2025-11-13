@@ -20,48 +20,56 @@
 #include <fcntl.h>
 #include <map>
 
-//the parentheses () mean default construction.
-SocketManager::SocketManager() 
+// the parentheses () mean default construction.
+SocketManager::SocketManager()
     : listeningSockets(),
       requestBuffers(),
       lastActivity(),
       sendBuffers(),
       serverList(),
       httpParser(new HttpParser()),
-      responseBuilder(new HttpResponse()) {
+      responseBuilder(new HttpResponse())
+{
 }
 
 // Add this setter to initialize the server list
-void SocketManager::setServers(const std::vector<Server>& servers) {
+void SocketManager::setServers(const std::vector<Server> &servers)
+{
     serverList = servers;
 }
 
-SocketManager::~SocketManager() {
+SocketManager::~SocketManager()
+{
     closeSocket();
     delete httpParser;
     delete responseBuilder;
 }
 
-std::string initToString(int n) {
+std::string initToString(int n)
+{
     std::ostringstream ss;
     ss << n;
     return ss.str();
 }
 
-std::vector<ServerSocketInfo> convertServersToSocketInfo(const std::vector<Server>& servers) {
+std::vector<ServerSocketInfo> convertServersToSocketInfo(const std::vector<Server> &servers)
+{
     std::vector<ServerSocketInfo> socketInfos;
-    
-    for (size_t i = 0; i < servers.size(); ++i) {
-        const Server& server = servers[i];
-        const std::vector<ListenCtx>& listens = server.getListens();
-        const std::vector<std::string>& serverNames = server.getServerNames();
-        
+
+    for (size_t i = 0; i < servers.size(); ++i)
+    {
+        const Server &server = servers[i];
+        const std::vector<ListenCtx> &listens = server.getListens();
+        const std::vector<std::string> &serverNames = server.getServerNames();
+
         std::string serverName = "";
-        if (!serverNames.empty()) {
+        if (!serverNames.empty())
+        {
             serverName = serverNames[0];
         }
-        for (size_t j = 0; j < listens.size(); ++j) {
-            const ListenCtx& listen = listens[j];
+        for (size_t j = 0; j < listens.size(); ++j)
+        {
+            const ListenCtx &listen = listens[j];
             ServerSocketInfo info(listen.addr, initToString(listen.port), serverName);
             socketInfos.push_back(info);
         }
@@ -69,14 +77,17 @@ std::vector<ServerSocketInfo> convertServersToSocketInfo(const std::vector<Serve
     return socketInfos;
 }
 
-bool SocketManager::initSockets(const std::vector<ServerSocketInfo>& servers) {
+bool SocketManager::initSockets(const std::vector<ServerSocketInfo> &servers)
+{
     std::map<std::string, int> existingSockets;
 
-    for (size_t i = 0; i < servers.size(); ++i) {
+    for (size_t i = 0; i < servers.size(); ++i)
+    {
         const ServerSocketInfo &server = servers[i];
         std::string key = server.host + ":" + server.port;
 
-        if (existingSockets.count(key)) {
+        if (existingSockets.count(key))
+        {
             std::cout << "Reusing existing socket for " << key
                       << " (fd=" << existingSockets[key] << ")" << std::endl;
             continue;
@@ -89,13 +100,14 @@ bool SocketManager::initSockets(const std::vector<ServerSocketInfo>& servers) {
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_flags = AI_PASSIVE;
 
-        const char* bindHost;
+        const char *bindHost;
         if (server.host.empty())
             bindHost = "0.0.0.0";
         else
             bindHost = server.host.c_str();
 
-        if (getaddrinfo(bindHost, server.port.c_str(), &hints, &res) != 0) {
+        if (getaddrinfo(bindHost, server.port.c_str(), &hints, &res) != 0)
+        {
             std::cerr << "getaddrinfo failed for " << key << std::endl;
             closeSocket();
             continue;
@@ -103,7 +115,8 @@ bool SocketManager::initSockets(const std::vector<ServerSocketInfo>& servers) {
 
         int listen_fd = -1;
         struct addrinfo *p;
-        for (p = res; p != NULL; p = p->ai_next) {
+        for (p = res; p != NULL; p = p->ai_next)
+        {
             listen_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
             if (listen_fd == -1)
                 continue;
@@ -111,8 +124,10 @@ bool SocketManager::initSockets(const std::vector<ServerSocketInfo>& servers) {
             int opt = 1;
             setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-            if (bind(listen_fd, p->ai_addr, p->ai_addrlen) == 0) {
-                if (listen(listen_fd, 10) == -1) {
+            if (bind(listen_fd, p->ai_addr, p->ai_addrlen) == 0)
+            {
+                if (listen(listen_fd, 10) == -1)
+                {
                     std::cerr << "listen failed for " << key << std::endl;
                     close(listen_fd);
                     listen_fd = -1;
@@ -120,14 +135,16 @@ bool SocketManager::initSockets(const std::vector<ServerSocketInfo>& servers) {
                 else
                     break;
             }
-            else {
+            else
+            {
                 close(listen_fd);
                 listen_fd = -1;
             }
         }
         freeaddrinfo(res);
 
-        if (listen_fd == -1) {
+        if (listen_fd == -1)
+        {
             std::cerr << "Failed to bind any address for " << key << std::endl;
             closeSocket();
             continue;
@@ -142,33 +159,41 @@ bool SocketManager::initSockets(const std::vector<ServerSocketInfo>& servers) {
     return true;
 }
 
-const std::vector<int>& SocketManager::getSockets() const {
+const std::vector<int> &SocketManager::getSockets() const
+{
     return listeningSockets;
 }
 
-void SocketManager::closeSocket() {
-    for (size_t i = 0; i < listeningSockets.size(); ++i) {
-        if (listeningSockets[i] != -1) {
+void SocketManager::closeSocket()
+{
+    for (size_t i = 0; i < listeningSockets.size(); ++i)
+    {
+        if (listeningSockets[i] != -1)
+        {
             close(listeningSockets[i]);
         }
     }
     listeningSockets.clear();
 }
 
-bool SocketManager::isServerSocket(int fd) const {
-    for (size_t i = 0; i < listeningSockets.size(); ++i) {
+bool SocketManager::isServerSocket(int fd) const
+{
+    for (size_t i = 0; i < listeningSockets.size(); ++i)
+    {
         if (fd == listeningSockets[i])
             return true;
     }
     return false;
 }
 
-void SocketManager::acceptNewClient(int readyServerFd, int epfd) {
+void SocketManager::acceptNewClient(int readyServerFd, int epfd)
+{
     int connection_fd = accept(readyServerFd, NULL, NULL);
     if (connection_fd == -1)
         return;
 
-    if (fcntl(connection_fd, F_SETFL, O_NONBLOCK) == -1) {
+    if (fcntl(connection_fd, F_SETFL, O_NONBLOCK) == -1)
+    {
         close(connection_fd);
         return;
     }
@@ -176,26 +201,30 @@ void SocketManager::acceptNewClient(int readyServerFd, int epfd) {
     ev.events = EPOLLIN | EPOLLOUT;
     ev.data.fd = connection_fd;
 
-    if (epoll_ctl(epfd, EPOLL_CTL_ADD, connection_fd, &ev) == -1) {
+    if (epoll_ctl(epfd, EPOLL_CTL_ADD, connection_fd, &ev) == -1)
+    {
         close(connection_fd);
         return;
     }
     std::cout << "Accepted new client fd=" << connection_fd << std::endl;
 }
 
-//Checks
-bool SocketManager::isRequestTooLarge(int fd) {
+// Checks
+bool SocketManager::isRequestTooLarge(int fd)
+{
     return requestBuffers[fd].size() > MAX_REQUEST_SIZE;
 }
 
-bool SocketManager::isHeaderTooLarge(int fd) {
+bool SocketManager::isHeaderTooLarge(int fd)
+{
     size_t header_end = requestBuffers[fd].find("\r\n\r\n");
     if (header_end == std::string::npos)
         return requestBuffers[fd].size() > MAX_HEADER_SIZE;
     return false;
 }
 
-bool SocketManager::isRequestLineMalformed(int fd) {
+bool SocketManager::isRequestLineMalformed(int fd)
+{
     size_t line_end = requestBuffers[fd].find("\r\n");
     if (line_end == std::string::npos)
         return false;
@@ -216,20 +245,23 @@ bool SocketManager::isRequestLineMalformed(int fd) {
     return false;
 }
 
-bool SocketManager::hasNonPrintableCharacters(int fd) {
+bool SocketManager::hasNonPrintableCharacters(int fd)
+{
     size_t line_end = requestBuffers[fd].find("\r\n");
     if (line_end == std::string::npos)
         return false;
 
     std::string line = requestBuffers[fd].substr(0, line_end);
-    for (size_t i = 0; i < line.size(); ++i) {
+    for (size_t i = 0; i < line.size(); ++i)
+    {
         if (!isprint(line[i]) && !isspace(line[i]))
             return true;
     }
     return false;
 }
 
-bool SocketManager::isBodyTooLarge(int fd) {
+bool SocketManager::isBodyTooLarge(int fd)
+{
     size_t header_end = requestBuffers[fd].find("\r\n\r\n");
     if (header_end == std::string::npos)
         return false;
@@ -239,7 +271,8 @@ bool SocketManager::isBodyTooLarge(int fd) {
     // Find Content-Length
     size_t content_length = 0;
     size_t cl_pos = headers.find("Content-Length:");
-    if (cl_pos != std::string::npos) {
+    if (cl_pos != std::string::npos)
+    {
         std::string cl_str = headers.substr(cl_pos + 15);
         std::istringstream iss(cl_str);
         iss >> content_length;
@@ -256,7 +289,8 @@ bool SocketManager::isBodyTooLarge(int fd) {
     return false;
 }
 
-bool SocketManager::hasInvalidPercentEncoding(int fd) {
+bool SocketManager::hasInvalidPercentEncoding(int fd)
+{
     size_t line_end = requestBuffers[fd].find("\r\n");
     if (line_end == std::string::npos)
         return false;
@@ -269,9 +303,11 @@ bool SocketManager::hasInvalidPercentEncoding(int fd) {
 
     std::string path = line.substr(first_space + 1, last_space - first_space - 1);
 
-    for (size_t i = 0; i < path.size(); ++i) {
-        if (path[i] == '%') {
-            if (i + 2 >= path.size() || !isxdigit(path[i+1]) || !isxdigit(path[i+2]))
+    for (size_t i = 0; i < path.size(); ++i)
+    {
+        if (path[i] == '%')
+        {
+            if (i + 2 >= path.size() || !isxdigit(path[i + 1]) || !isxdigit(path[i + 2]))
                 return true;
             i += 2;
         }
@@ -279,18 +315,21 @@ bool SocketManager::hasInvalidPercentEncoding(int fd) {
     return false;
 }
 
-void SocketManager::sendHttpError(int fd, const std::string &status, int epfd) {
+void SocketManager::sendHttpError(int fd, const std::string &status, int epfd)
+{
     int code = atoi(status.c_str());
 
     Server &server = selectServerForClient(fd);
     RequestContext ctx(server, NULL);
 
     std::string body;
-    
-    try {
+
+    try
+    {
         body = ctx.getErrorPageContent(code);
     }
-    catch (const std::exception& e) {
+    catch (const std::exception &e)
+    {
         std::cerr << "Error while loading error page: " << e.what() << std::endl;
 
         std::ostringstream fallback;
@@ -313,21 +352,26 @@ void SocketManager::sendHttpError(int fd, const std::string &status, int epfd) {
     epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
 }
 
-Server& SocketManager::selectServerForClient(int clientFd) {
+Server &SocketManager::selectServerForClient(int clientFd)
+{
 
     struct sockaddr_in serverAddr;
     socklen_t addrlen = sizeof(serverAddr);
-    if (getsockname(clientFd, (struct sockaddr*)&serverAddr, &addrlen) == -1) {
+    if (getsockname(clientFd, (struct sockaddr *)&serverAddr, &addrlen) == -1)
+    {
         return serverList[0];
     }
     std::string serverIP = inet_ntoa(serverAddr.sin_addr);
     u_int16_t serverPort = ntohs(serverAddr.sin_port);
 
-    for (size_t i = 0; i < serverList.size(); ++i) {
+    for (size_t i = 0; i < serverList.size(); ++i)
+    {
         const std::vector<ListenCtx> &listens = serverList[i].getListens();
-        for (size_t j = 0; j < listens.size(); ++j) {
+        for (size_t j = 0; j < listens.size(); ++j)
+        {
             if (listens[j].port == serverPort &&
-                (listens[j].addr == "0.0.0.0" || listens[j].addr == serverIP)) {
+                (listens[j].addr == "0.0.0.0" || listens[j].addr == serverIP))
+            {
                 return serverList[i];
             }
         }
@@ -335,8 +379,9 @@ Server& SocketManager::selectServerForClient(int clientFd) {
     return serverList[0];
 }
 
-//dummy full until omran finishes the parsing  
-HttpRequest* SocketManager::fillRequest(const std::string &rawRequest, Server& server) {
+// dummy full until omran finishes the parsing
+HttpRequest *SocketManager::fillRequest(const std::string &rawRequest, Server &server)
+{
     // std::cout << "=== Raw request ===\n" << rawRequest << "\n=== End ===" << std::endl;
 
     std::istringstream stream(rawRequest);
@@ -361,15 +406,15 @@ HttpRequest* SocketManager::fillRequest(const std::string &rawRequest, Server& s
     std::string cleanPath;
     std::map<std::string, std::string> query;
     HttpRequest::parseQuery(path, cleanPath, query);
-    
+
     // Find matching location for this path
-    const LocationConfig* location = server.findLocation(cleanPath);
-    
+    const LocationConfig *location = server.findLocation(cleanPath);
+
     // Create RequestContext with server and location
     RequestContext ctx(server, location);
-    
+
     // Create appropriate HttpRequest subclass
-    HttpRequest* request = makeRequestByMethod(method, ctx);
+    HttpRequest *request = makeRequestByMethod(method, ctx);
     if (!request)
         return 0; // Unsupported method
 
@@ -380,7 +425,8 @@ HttpRequest* SocketManager::fillRequest(const std::string &rawRequest, Server& s
 
     // Parse headers until empty line (CRLF)
     std::string line;
-    while (std::getline(stream, line)) {
+    while (std::getline(stream, line))
+    {
         if (!line.empty() && line[line.size() - 1] == '\r')
             line.erase(line.size() - 1);
         if (line.empty())
@@ -393,7 +439,8 @@ HttpRequest* SocketManager::fillRequest(const std::string &rawRequest, Server& s
 
     // Parse the body (if present)
     std::string body, chunk;
-    while (std::getline(stream, chunk)) {
+    while (std::getline(stream, chunk))
+    {
         if (!chunk.empty() && chunk[chunk.size() - 1] == '\r')
             chunk.erase(chunk.size() - 1);
         body += chunk;
@@ -406,37 +453,40 @@ HttpRequest* SocketManager::fillRequest(const std::string &rawRequest, Server& s
     return request;
 }
 
-void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::string &rawRequest) {
-    Server& myServer = selectServerForClient(readyServerFd);
+void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::string &rawRequest)
+{
+    Server &myServer = selectServerForClient(readyServerFd);
 
-    //will be replaced by omran part
-    HttpRequest* request = fillRequest(rawRequest, myServer);
-    if (!request) {
+    // will be replaced by omran part
+    HttpRequest *request = fillRequest(rawRequest, myServer);
+    if (!request)
+    {
         sendHttpError(readyServerFd, "400 Bad Request", epfd);
         requestBuffers[readyServerFd].clear();
         return;
     }
-    
+
     // Validate the request before handling it
     std::string validationError;
-    if (!request->validate(validationError)) {
+    if (!request->validate(validationError))
+    {
         // Request validation failed
         HttpResponse res;
         res.setError(400, "Bad Request");
         res.setBody("<h1>400 Bad Request</h1><p>" + validationError + "</p>");
         res.setVersion("HTTP/1.0");
         sendBuffers[readyServerFd] = res.build();
-        
+
         struct epoll_event ev;
         ev.events = EPOLLIN | EPOLLOUT;
         ev.data.fd = readyServerFd;
         epoll_ctl(epfd, EPOLL_CTL_MOD, readyServerFd, &ev);
-        
+
         delete request;
         requestBuffers[readyServerFd].clear();
         return;
     }
-     
+
     HttpResponse res;
     request->handle(res);
     res.setVersion("HTTP/1.0");
@@ -451,22 +501,25 @@ void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::s
     requestBuffers[readyServerFd].clear();
 }
 
-bool SocketManager::isRequestMalformed(int fd) {
-    return isRequestLineMalformed(fd) 
-        || hasNonPrintableCharacters(fd) 
-        || hasInvalidPercentEncoding(fd);
+bool SocketManager::isRequestMalformed(int fd)
+{
+    return isRequestLineMalformed(fd) || hasNonPrintableCharacters(fd) || hasInvalidPercentEncoding(fd);
 }
 
-bool SocketManager::validateRequestSize(int fd, int epfd) {
+bool SocketManager::validateRequestSize(int fd, int epfd)
+{
     size_t header_end = requestBuffers[fd].find("\r\n\r\n");
 
-    if (header_end == std::string::npos && requestBuffers[fd].size() > MAX_HEADER_SIZE) {
+    if (header_end == std::string::npos && requestBuffers[fd].size() > MAX_HEADER_SIZE)
+    {
         sendHttpError(fd, "431 Request Header Fields Too Large", epfd);
         return false;
     }
 
-    if (header_end != std::string::npos) {
-        if (requestBuffers[fd].size() > MAX_REQUEST_SIZE || isBodyTooLarge(fd)) {
+    if (header_end != std::string::npos)
+    {
+        if (requestBuffers[fd].size() > MAX_REQUEST_SIZE || isBodyTooLarge(fd))
+        {
             sendHttpError(fd, "413 Payload Too Large", epfd);
             requestBuffers[fd].clear();
             return false;
@@ -476,11 +529,13 @@ bool SocketManager::validateRequestSize(int fd, int epfd) {
     return true;
 }
 
-void SocketManager::handleRequest(int readyServerFd, int epfd) {
+void SocketManager::handleRequest(int readyServerFd, int epfd)
+{
     char buf[4096];
 
     ssize_t n = recv(readyServerFd, buf, sizeof(buf), 0);
-    if (n <= 0) {
+    if (n <= 0)
+    {
         close(readyServerFd);
         epoll_ctl(epfd, EPOLL_CTL_DEL, readyServerFd, 0);
         requestBuffers.erase(readyServerFd);
@@ -493,7 +548,8 @@ void SocketManager::handleRequest(int readyServerFd, int epfd) {
     requestBuffers[readyServerFd].append(buf, n);
 
     // Early malformed request validation
-    if (isRequestMalformed(readyServerFd)) {
+    if (isRequestMalformed(readyServerFd))
+    {
         sendHttpError(readyServerFd, "400 Bad Request", epfd);
         requestBuffers[readyServerFd].clear();
         return;
@@ -505,24 +561,27 @@ void SocketManager::handleRequest(int readyServerFd, int epfd) {
 
     // If everything looks good and headers are complete, process request
     size_t header_end = requestBuffers[readyServerFd].find("\r\n\r\n");
-    if (header_end != std::string::npos) {
+    if (header_end != std::string::npos)
+    {
         processFullRequest(readyServerFd, epfd, requestBuffers[readyServerFd]);
         requestBuffers[readyServerFd].clear();
     }
 }
 
-
-void SocketManager::handleTimeouts(int epfd) {
+void SocketManager::handleTimeouts(int epfd)
+{
     time_t now = time(NULL);
     std::map<int, time_t>::iterator it = lastActivity.begin();
 
-    while (it != lastActivity.end()) {
+    while (it != lastActivity.end())
+    {
         int fd = it->first;
         std::string &buf = requestBuffers[fd];
 
         bool headersComplete = (buf.find("\r\n\r\n") != std::string::npos);
 
-        if (!headersComplete && now - it->second >  CLIENT_TIMEOUT) {
+        if (!headersComplete && now - it->second > CLIENT_TIMEOUT)
+        {
             sendHttpError(fd, "408 Request Timeout", epfd);
             struct epoll_event ev;
             ev.events = EPOLLIN | EPOLLOUT;
@@ -530,23 +589,27 @@ void SocketManager::handleTimeouts(int epfd) {
             epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
 
             ++it;
-        } else
+        }
+        else
             ++it;
     }
 }
 
-void SocketManager::sendBuffer(int fd, int epfd) {
+void SocketManager::sendBuffer(int fd, int epfd)
+{
     std::map<int, std::string>::iterator it = sendBuffers.find(fd);
     if (it == sendBuffers.end())
         return;
 
     ssize_t sent = send(fd, it->second.c_str(), it->second.size(), MSG_NOSIGNAL | MSG_DONTWAIT);
 
-    if (sent > 0) {
+    if (sent > 0)
+    {
         it->second.erase(0, sent);
     }
 
-    if (it->second.empty() || sent <= 0) {
+    if (it->second.empty() || sent <= 0)
+    {
         close(fd);
         epoll_ctl(epfd, EPOLL_CTL_DEL, fd, 0);
         requestBuffers.erase(fd);
@@ -555,12 +618,14 @@ void SocketManager::sendBuffer(int fd, int epfd) {
     }
 }
 
-void SocketManager::handleClients() {
-    int epfd = epoll_create1(0);
+void SocketManager::handleClients()
+{
+    int epfd = epoll_create1(EPOLL_DEFAULT);
     if (epfd == -1)
         throw std::runtime_error("Failed to create epoll instance");
 
-    for (size_t i = 0; i < listeningSockets.size(); ++i) {
+    for (size_t i = 0; i < listeningSockets.size(); ++i)
+    {
         int listening_fd = listeningSockets[i];
         struct epoll_event event;
         event.events = EPOLLIN;
@@ -570,18 +635,22 @@ void SocketManager::handleClients() {
             throw std::runtime_error("Failed to add server socket to epoll");
     }
     std::vector<struct epoll_event> events(1024);
-    while (true) {
+    while (true)
+    {
         int n = epoll_wait(epfd, &events[0], events.size(), 1000);
-        if (n == -1) {  
+        if (n == -1)
+        {
             if (errno == EINTR)
-                continue;    
+                continue;
             throw std::runtime_error("epoll_wait failed");
         }
 
-        for (int i = 0; i < n; ++i) {
+        for (int i = 0; i < n; ++i)
+        {
             int readyServerFd = events[i].data.fd;
 
-            if (events[i].events & (EPOLLHUP | EPOLLERR)) {
+            if (events[i].events & (EPOLLHUP | EPOLLERR))
+            {
                 std::cerr << "Closing fd " << readyServerFd << " due to EPOLLHUP/EPOLLERR" << std::endl;
                 close(readyServerFd);
                 epoll_ctl(epfd, EPOLL_CTL_DEL, readyServerFd, 0);
@@ -599,4 +668,3 @@ void SocketManager::handleClients() {
         handleTimeouts(epfd);
     }
 }
-
