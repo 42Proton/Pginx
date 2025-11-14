@@ -3,6 +3,7 @@
 
 #include <arpa/inet.h>
 #include <map>
+#include <memory>
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
@@ -42,9 +43,9 @@ private:
   // Server list for multi-server support
   std::vector<Server> serverList;
 
-  // HTTP processing components
-  HttpParser *httpParser;
-  HttpResponse *responseBuilder;
+  // HTTP processing components (RAII auto-cleanup)
+  std::auto_ptr<HttpParser> httpParser;
+  std::auto_ptr<HttpResponse> responseBuilder;
 
 public:
   SocketManager();

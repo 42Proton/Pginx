@@ -4,6 +4,7 @@
 #include "HttpResponse.hpp"
 #include "HttpRequest.hpp"
 #include "requestContext.hpp"
+#include "ResourceGuards.hpp"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -41,8 +42,7 @@ void SocketManager::setServers(const std::vector<Server> &servers)
 SocketManager::~SocketManager()
 {
     closeSocket();
-    delete httpParser;
-    delete responseBuilder;
+    // httpParser and responseBuilder auto-deleted by std::auto_ptr
 }
 
 std::string initToString(int n)
@@ -117,29 +117,27 @@ bool SocketManager::initSockets(const std::vector<ServerSocketInfo> &servers)
         struct addrinfo *p;
         for (p = res; p != NULL; p = p->ai_next)
         {
-            listen_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-            if (listen_fd == -1)
+            SocketGuard socketGuard(socket(p->ai_family, p->ai_socktype, p->ai_protocol));
+            if (!socketGuard.isValid())
                 continue;
 
             int opt = 1;
-            setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+            setsockopt(socketGuard.get(), SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-            if (bind(listen_fd, p->ai_addr, p->ai_addrlen) == 0)
+            if (bind(socketGuard.get(), p->ai_addr, p->ai_addrlen) == 0)
             {
-                if (listen(listen_fd, 10) == -1)
+                if (listen(socketGuard.get(), 10) == -1)
                 {
                     std::cerr << "listen failed for " << key << std::endl;
-                    close(listen_fd);
-                    listen_fd = -1;
+                    // SocketGuard auto-closes on continue
                 }
                 else
+                {
+                    listen_fd = socketGuard.release(); // Success - transfer ownership
                     break;
+                }
             }
-            else
-            {
-                close(listen_fd);
-                listen_fd = -1;
-            }
+            // SocketGuard auto-closes on loop iteration if bind failed
         }
         freeaddrinfo(res);
 
@@ -188,25 +186,24 @@ bool SocketManager::isServerSocket(int fd) const
 
 void SocketManager::acceptNewClient(int readyServerFd, int epfd)
 {
-    int connection_fd = accept(readyServerFd, NULL, NULL);
-    if (connection_fd == -1)
+    SocketGuard connectionGuard(accept(readyServerFd, NULL, NULL));
+    if (!connectionGuard.isValid())
         return;
 
-    if (fcntl(connection_fd, F_SETFL, O_NONBLOCK) == -1)
+    if (fcntl(connectionGuard.get(), F_SETFL, O_NONBLOCK) == -1)
     {
-        close(connection_fd);
-        return;
+        return; // SocketGuard auto-closes
     }
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLOUT;
-    ev.data.fd = connection_fd;
+    ev.data.fd = connectionGuard.get();
 
-    if (epoll_ctl(epfd, EPOLL_CTL_ADD, connection_fd, &ev) == -1)
+    if (epoll_ctl(epfd, EPOLL_CTL_ADD, connectionGuard.get(), &ev) == -1)
     {
-        close(connection_fd);
-        return;
+        return; // SocketGuard auto-closes
     }
-    std::cout << "Accepted new client fd=" << connection_fd << std::endl;
+    std::cout << "Accepted new client fd=" << connectionGuard.get() << std::endl;
+    connectionGuard.release(); // Success - epoll now manages the FD
 }
 
 // Checks
@@ -458,8 +455,8 @@ void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::s
     Server &myServer = selectServerForClient(readyServerFd);
 
     // will be replaced by omran part
-    HttpRequest *request = fillRequest(rawRequest, myServer);
-    if (!request)
+    RequestGuard request(fillRequest(rawRequest, myServer));
+    if (!request.isValid())
     {
         sendHttpError(readyServerFd, "400 Bad Request", epfd);
         requestBuffers[readyServerFd].clear();
@@ -482,9 +479,8 @@ void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::s
         ev.data.fd = readyServerFd;
         epoll_ctl(epfd, EPOLL_CTL_MOD, readyServerFd, &ev);
 
-        delete request;
         requestBuffers[readyServerFd].clear();
-        return;
+        return; // RequestGuard automatically deletes on scope exit
     }
 
     HttpResponse res;
@@ -497,8 +493,8 @@ void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::s
     ev.data.fd = readyServerFd;
     epoll_ctl(epfd, EPOLL_CTL_MOD, readyServerFd, &ev);
 
-    delete request;
     requestBuffers[readyServerFd].clear();
+    // RequestGuard automatically deletes request when function exits
 }
 
 bool SocketManager::isRequestMalformed(int fd)
@@ -620,9 +616,11 @@ void SocketManager::sendBuffer(int fd, int epfd)
 
 void SocketManager::handleClients()
 {
-    int epfd = epoll_create1(EPOLL_DEFAULT);
-    if (epfd == -1)
+    EpollGuard epollGuard(epoll_create1(EPOLL_DEFAULT));
+    if (!epollGuard.isValid())
         throw std::runtime_error("Failed to create epoll instance");
+
+    int epfd = epollGuard.get();
 
     for (size_t i = 0; i < listeningSockets.size(); ++i)
     {
