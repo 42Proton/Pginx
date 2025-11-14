@@ -18,6 +18,7 @@ MODELS=\
 	models/srcs/HttpRequest.cpp\
 	models/srcs/HttpParser.cpp\
 	models/srcs/requestContext.cpp\
+	models/srcs/ResourceGuards.cpp\
 
 TEMPLATES=\
 
@@ -34,3 +35,4 @@ HEADERS=\
 	models/headers/HttpRequest.hpp\
 	models/headers/HttpParser.hpp\
 	models/headers/requestContext.hpp\
+	models/headers/ResourceGuards.hpp\
