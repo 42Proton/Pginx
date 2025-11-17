@@ -1,6 +1,7 @@
 #include <defaults.hpp>
 #include <sstream>
 #include <utils.hpp>
+#include <CommonExceptions.hpp>
 
 static std::string checkInput(int argc, char **argv)
 {
@@ -31,7 +32,6 @@ static bool checkValidExt(std::string input)
 
 std::string initValidation(int argc, char **argv)
 {
-
     std::string inputFile = checkInput(argc, argv);
 
     if (inputFile.empty() || checkValidExt(inputFile))
