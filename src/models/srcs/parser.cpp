@@ -195,11 +195,10 @@ static size_t parseLocation(const std::vector<Token>& tokens,
     i = parseLocationDirective(tokens, i, location);
   }
 
-  if (locationBraceLevel != 0)
-    if (locationBraceLevel != 0) {
-      throw std::runtime_error("Unclosed 'location' block for '" + path +
-                               "': missing '}'");
-    }
+  if (locationBraceLevel != 0) {
+    throw std::runtime_error("Unclosed 'location' block for '" + path +
+                             "': missing '}'");
+  }
 
   server.addLocation(location);
   return i;
@@ -436,10 +435,9 @@ Container parser(const std::vector<Token>& tokens) {
     }
   }
 
-  if (container.getServers().empty())
-    if (container.getServers().empty()) {
-      throw std::runtime_error("No server blocks defined in configuration");
-    }
+  if (container.getServers().empty()) {
+    throw std::runtime_error("No server blocks defined in configuration");
+  }
 
   return container;
 }
