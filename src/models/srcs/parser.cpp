@@ -96,6 +96,9 @@ static size_t parseLocationDirective(const std::vector<Token>& tokens,
       throw std::runtime_error("Unknown location directive: " +
                                locationDirective);
     }
+  } else {
+    throw std::runtime_error("Expected location directive, got: " +
+                             tokens[i].value);
   }
   // Note: semicolons are now consumed by each directive handler
   return i;
