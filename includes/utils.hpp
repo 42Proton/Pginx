@@ -5,15 +5,18 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <sstream>
+#include <limits>
 #include <map>
-#include <utility>
 #include <set>
 #include <string>
-#include <limits>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
+
+// Forward declarations
+class Container;
+class Server;
+class LocationConfig;
 
 // nginx implement the following compile time macro which defines the root relative path
 #define PGINX_PREFIX "/var/lib/pginx/"
@@ -29,10 +32,16 @@
 #define MAX_MEGABYTE 17592186044416UL
 #define MAX_GIGABYTE 17179869184UL
 
-
 std::string initValidation(int argc, char **argv);
 std::vector<std::string> split(const std::string &str, char delimiter);
 std::vector<std::string> split(const std::string &str, const std::string &delimiter);
-const char& str_back(const std::string& str);
+const char &str_back(const std::string &str);
+
+std::string getMimeType(const std::string &file);
+bool endsWith(const std::string &str, const std::string &suffix);
+void printQueryParams(const std::map<std::string, std::string>& queryParams);
+
+// Configuration printing
+void printContainer(const Container &container);
 
 #endif

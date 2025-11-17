@@ -1,43 +1,44 @@
-#include <defaults.hpp>
-#include <utils.hpp>
-#include <BaseBlock.hpp>
-#include <ServerContainer.hpp>
-#include <Server.hpp>
+#include <cstring>
+#include <iostream>
+#include "Container.hpp"
+#include "SocketManager.hpp"
+#include "parser.hpp"
+#include "utils.hpp"
 
-int main(int argc, char **argv)
-{
-    try
-    {
-        std::ifstream inputFile((initValidation(argc, argv)).c_str());
+std::vector<ServerSocketInfo> convertServersToSocketInfo(
+    const std::vector<Server>& servers);
 
-        if (!inputFile.is_open())
-            throw CommonExceptions::OpenFileException();
-    }
-    catch (std::exception &e)
-    {
-        std::cerr << e.what() << std::endl;
-        return 1;
-    }
-    // (void)argc;
-    // (void)argv;
-    // BaseBlock obj;
-    // obj.setRoot("");
-    // std::cout << obj.getRoot() << std::endl;
-    // obj.setReturnData(403);
-    // std::string size = "100G";
-    // obj.setClientMaxBodySize(size);
-    // std::cout << obj.getClientMaxBodySize() << std::endl;
-    // std::vector<std::string> routesA;
-    // routesA.push_back("dir1");
-    // routesA.push_back("index.html");
-    // routesA.push_back("index.html/");
-    // obj.insertIndex(routesA);
-    // obj.getIndex();
-    // std::vector<u_int16_t> errorCodes;
-    // errorCodes.push_back(600);
-    // errorCodes.push_back(500);
-    // errorCodes.push_back(400);
-    // obj.insertErrorPage(errorCodes, "error.html");
-    // std::cout << obj.getErrorPage(500) << std::endl;
-    return (0);
+int main(int argc, char** argv) {
+  // if no config file found ->> load default built-in confing and print
+  //"Warning: No config file provided. Using default configuration."
+  if (argc != 2) {
+    std::cerr << "Provide a configuration file!" << std::endl;
+    return 1;
+  }
+
+  try {
+    initValidation(argc, argv);
+    std::string content = readFile(argv[1]);
+    std::vector<Token> tokens = lexer(content);
+    checks(tokens);
+    Container container = parser(tokens);
+
+    std::vector<ServerSocketInfo> socketInfos =
+        convertServersToSocketInfo(container.getServers());
+
+    SocketManager socketManager;
+    socketManager.setServers(container.getServers());
+
+    if (!socketManager.initSockets(socketInfos))
+      throw std::runtime_error("Failed to initialize sockets.");
+
+    // Check
+    std::cout << "Server initialized. Waiting for clients..." << std::endl;
+    socketManager.handleClients();
+  } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << std::endl;
+    return 1;
+  }
+
+  return 0;
 }
