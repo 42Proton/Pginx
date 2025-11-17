@@ -17,30 +17,24 @@ int main(int argc, char** argv) {
   }
 
   try {
-    // Checkpoint 1: Initialization and configuration file reading
     initValidation(argc, argv);
     std::string content = readFile(argv[1]);
     std::vector<Token> tokens = lexer(content);
     checks(tokens);
     Container container = parser(tokens);
 
-    // Print configuration summary
-    printContainer(container);
+    std::vector<ServerSocketInfo> socketInfos =
+        convertServersToSocketInfo(container.getServers());
 
-        // // Checkpoint 2: Convert servers to socket information
-    // std::vector<ServerSocketInfo> socketInfos =
-    //     convertServersToSocketInfo(container.getServers());
+    SocketManager socketManager;
+    socketManager.setServers(container.getServers());
 
-    // // Checkpoint 3: Initialize SocketManager and start handling clients
-    // SocketManager socketManager;
-    // socketManager.setServers(container.getServers());
+    if (!socketManager.initSockets(socketInfos))
+      throw std::runtime_error("Failed to initialize sockets.");
 
-    // if (!socketManager.initSockets(socketInfos))
-    //   throw std::runtime_error("Failed to initialize sockets.");
-
-    // // Check
-    // std::cout << "Server initialized. Waiting for clients..." << std::endl;
-    // socketManager.handleClients();
+    // Check
+    std::cout << "Server initialized. Waiting for clients..." << std::endl;
+    socketManager.handleClients();
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << std::endl;
     return 1;
