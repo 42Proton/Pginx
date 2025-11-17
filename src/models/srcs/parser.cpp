@@ -3,338 +3,440 @@
 #include <parser.hpp>
 #include <utils.hpp>
 
-bool expect(std::string expected, Token token)
-{
-    return token.value == expected;
+bool expect(std::string expected, Token token) {
+  return token.value == expected;
 }
 
-static size_t parseLocationDirective(const std::vector<Token> &tokens, size_t i, LocationConfig &location)
-{
-    if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL)
-    {
-        std::string locationDirective = tokens[i].value;
-        i++;
+static size_t parseLocationDirective(const std::vector<Token>& tokens,
+                                     size_t i,
+                                     LocationConfig& location) {
+  if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL) {
+    std::string locationDirective = tokens[i].value;
+    i++;
 
-        if (locationDirective == "root" && i < tokens.size())
-        {
-            location.setRoot(tokens[i].value);
-            i++;
-        }
-        else if (locationDirective == "index" && i < tokens.size())
-        {
-            std::vector<std::string> indexFiles;
-            while (i < tokens.size() && tokens[i].value != ";")
-            {
-                indexFiles.push_back(tokens[i].value);
-                i++;
-            }
-            location.insertIndex(indexFiles);
-        }
-        else if (locationDirective == "autoindex" && i < tokens.size())
-        {
-            if (tokens[i].value == "on")
-            {
-                location.activateAutoIndex();
-            }
-            i++;
-        }
-        else if (locationDirective == "error_page" && i < tokens.size())
-        {
-            // Handle error_page in location block
-            std::vector<u_int16_t> errorCodes;
-            std::string errorPage;
-            
-            // Collect error codes
-            while (i < tokens.size() && tokens[i].value != ";" && tokens[i].type == NUMBER)
-            {
-                errorCodes.push_back(static_cast<u_int16_t>(std::atoi(tokens[i].value.c_str())));
-                i++;
-            }
-            
-            // Get the error page path
-            if (i < tokens.size() && tokens[i].value != ";")
-            {
-                errorPage = tokens[i].value;
-                i++;
-            }
-            
-            // Insert each error code separately
-            if (!errorCodes.empty() && !errorPage.empty())
-            {
-                for (size_t j = 0; j < errorCodes.size(); ++j)
-                {
-                    location.insertErrorPage(errorCodes[j], errorPage);
-                }
-            }
-        }
-        else if (locationDirective == "upload_dir" && i < tokens.size())
-        {
-            location.setUploadDir(tokens[i].value);
-            i++;
-        }
-    }
-    else
-    {
-        // Skip semicolons and other tokens
-        i++;
-    }
-    return i;
-}
-
-static size_t parseLocation(const std::vector<Token> &tokens, size_t i, Server &server, int &serverBraceLevel, int &httpBraceLevel)
-{
-    // Parse location block
-    if (i < tokens.size())
-    {
-        std::string path = tokens[i].value;
-        i++;
-
-        LocationConfig location(path);
-
-        int locationBraceLevel = 0;
-        // Skip opening brace
-        if (i < tokens.size() && tokens[i].value == "{")
-        {
-            locationBraceLevel++;
-            serverBraceLevel++;
-            httpBraceLevel++;
-            i++;
-        }
-
-        // Parse location directives
-        while (i < tokens.size() && locationBraceLevel > 0)
-        {
-            if (tokens[i].value == "{")
-            {
-                locationBraceLevel++;
-                serverBraceLevel++;
-                httpBraceLevel++;
-            }
-            else if (tokens[i].value == "}")
-            {
-                locationBraceLevel--;
-                serverBraceLevel--;
-                httpBraceLevel--;
-                if (locationBraceLevel == 0)
-                {
-                    i++; // Move past closing brace
-                    break;
-                }
-            }
-
-            i = parseLocationDirective(tokens, i, location);
-        }
-
-        server.addLocation(location);
-    }
-    return i;
-}
-
-static size_t parseErrorPageDirective(const std::vector<Token> &tokens, size_t i, Server &server)
-{
-    // Handle error_page directive: error_page 404 /page.html; or error_page 500 502 503 /page.html;
-    std::vector<u_int16_t> errorCodes;
-    std::string errorPage;
-
-    // Collect error codes
-    while (i < tokens.size() && tokens[i].value != ";" && tokens[i].type == NUMBER)
-    {
-        errorCodes.push_back(static_cast<u_int16_t>(std::atoi(tokens[i].value.c_str())));
-        i++;
-    }
-
-    // Get the error page path
-    if (i < tokens.size() && tokens[i].value != ";")
-    {
-        errorPage = tokens[i].value;
-        i++;
-    }
-
-    // Insert each error code separately using the new single-insert approach
-    if (!errorCodes.empty() && !errorPage.empty())
-    {
-        for (size_t j = 0; j < errorCodes.size(); ++j)
-        {
-            server.insertErrorPage(errorCodes[j], errorPage);
-        }
-    }
-    
-    return i;
-}
-
-static size_t parseIndexDirective(const std::vector<Token> &tokens, size_t i, Server &server)
-{
-    // Handle multiple index files
-    std::vector<std::string> indexFiles;
-    while (i < tokens.size() && tokens[i].value != ";")
-    {
+    if (locationDirective == "root" && i < tokens.size()) {
+      location.setRoot(tokens[i].value);
+      i++;
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error("Expected ';' after 'root' directive");
+      }
+      i++;
+    } else if (locationDirective == "index" && i < tokens.size()) {
+      std::vector<std::string> indexFiles;
+      while (i < tokens.size() && tokens[i].value != ";") {
         indexFiles.push_back(tokens[i].value);
         i++;
+      }
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error("Expected ';' after 'index' directive");
+      }
+      i++;
+      location.insertIndex(indexFiles);
+    } else if (locationDirective == "autoindex" && i < tokens.size()) {
+      if (tokens[i].value == "on") {
+        location.activateAutoIndex();
+      }
+      i++;
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error("Expected ';' after 'autoindex' directive");
+      }
+      i++;
+    } else if (locationDirective == "error_page" && i < tokens.size()) {
+      std::vector<u_int16_t> errorCodes;
+      std::string errorPage;
+      while (i < tokens.size() && tokens[i].value != ";" &&
+             tokens[i].type == NUMBER) {
+        errorCodes.push_back(
+            static_cast<u_int16_t>(std::atoi(tokens[i].value.c_str())));
+        i++;
+      }
+
+      if (i < tokens.size() && tokens[i].value != ";") {
+        errorPage = tokens[i].value;
+        i++;
+      }
+
+      if (!errorCodes.empty() && !errorPage.empty()) {
+        for (size_t j = 0; j < errorCodes.size(); ++j) {
+          location.insertErrorPage(errorCodes[j], errorPage);
+        }
+      }
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error("Expected ';' after 'error_page' directive");
+      }
+      i++;
+    } else if (locationDirective == "upload_dir" && i < tokens.size()) {
+      location.setUploadDir(tokens[i].value);
+      i++;
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error("Expected ';' after 'upload_dir' directive");
+      }
+      i++;
+    } else if (locationDirective == "allow_methods" && i < tokens.size()) {
+      std::vector<std::string> methods;
+      while (i < tokens.size() && tokens[i].value != ";") {
+        methods.push_back(tokens[i].value);
+        i++;
+      }
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error(
+            "Expected ';' after 'allow_methods' directive");
+      }
+      i++;
+      if (!methods.empty()) {
+        location.setMethods(methods);
+      }
+    } else {
+      while (i < tokens.size() && tokens[i].value != ";") {
+        i++;
+      }
+      if (i < tokens.size() && tokens[i].value == ";") {
+        i++;
+      }
+      throw std::runtime_error("Unknown location directive: " +
+                               locationDirective);
     }
-    server.insertIndex(indexFiles);
-    return i;
+  }
+  // Note: semicolons are now consumed by each directive handler
+  return i;
 }
 
-static size_t parseBasicServerDirective(const std::vector<Token> &tokens, size_t i, Server &server, const std::string &directive)
-{
-    if (directive == "listen" && i < tokens.size())
-    {
-        // Parse port number from string
-        u_int16_t port = 80; // default
-        if (!tokens[i].value.empty())
-        {
-            port = static_cast<u_int16_t>(std::atoi(tokens[i].value.c_str()));
+static size_t parseLocation(const std::vector<Token>& tokens,
+                            size_t i,
+                            Server& server,
+                            int& serverBraceLevel,
+                            int& httpBraceLevel) {
+  MatchType matchType = PREFIX;
+  std::string path;
+
+  if (i >= tokens.size()) {
+    throw std::runtime_error("Expected location path or modifier");
+  }
+
+  std::string firstToken = tokens[i].value;
+
+  if (firstToken == "=") {
+    matchType = EXACT;
+    i++;
+    if (i >= tokens.size()) {
+      throw std::runtime_error("Expected path after '=' modifier");
+    }
+    path = tokens[i].value;
+    i++;
+  } else if (firstToken == "~") {
+    matchType = REGEX_CASE;
+    i++;
+    if (i >= tokens.size()) {
+      throw std::runtime_error("Expected regex pattern after '~' modifier");
+    }
+    path = tokens[i].value;
+    i++;
+  } else if (firstToken == "~*") {
+    matchType = REGEX_ICASE;
+    i++;
+    if (i >= tokens.size()) {
+      throw std::runtime_error("Expected regex pattern after '~*' modifier");
+    }
+    path = tokens[i].value;
+    i++;
+  } else if (firstToken == "^~") {
+    matchType = PRIORITY_PREFIX;
+    i++;
+    if (i >= tokens.size()) {
+      throw std::runtime_error("Expected path after '^~' modifier");
+    }
+    path = tokens[i].value;
+    i++;
+  } else if (firstToken[0] == '@') {
+    matchType = NAMED;
+    path = firstToken;
+    i++;
+  } else {
+    path = firstToken;
+    i++;
+  }
+
+  if (path.empty()) {
+    throw std::runtime_error("Location path cannot be empty");
+  }
+
+  LocationConfig location(path, matchType);
+
+  int locationBraceLevel = 0;
+  if (i >= tokens.size() || tokens[i].value != "{") {
+    throw std::runtime_error("Expected '{' after location path '" + path + "'");
+  }
+  locationBraceLevel++;
+  serverBraceLevel++;
+  httpBraceLevel++;
+  i++;
+
+  while (i < tokens.size() && locationBraceLevel > 0) {
+    if (tokens[i].value == "{") {
+      locationBraceLevel++;
+      serverBraceLevel++;
+      httpBraceLevel++;
+    } else if (tokens[i].value == "}") {
+      if (locationBraceLevel <= 0) {
+        throw std::runtime_error("Unexpected '}' in location block");
+      }
+      locationBraceLevel--;
+      serverBraceLevel--;
+      httpBraceLevel--;
+      if (locationBraceLevel == 0) {
+        i++;
+        break;
+      }
+    }
+
+    i = parseLocationDirective(tokens, i, location);
+  }
+
+  if (locationBraceLevel != 0)
+    if (locationBraceLevel != 0) {
+      throw std::runtime_error("Unclosed 'location' block for '" + path +
+                               "': missing '}'");
+    }
+
+  server.addLocation(location);
+  return i;
+}
+
+static size_t parseErrorPageDirective(const std::vector<Token>& tokens,
+                                      size_t i,
+                                      Server& server) {
+  std::vector<u_int16_t> errorCodes;
+  std::string errorPage;
+  while (i < tokens.size() && tokens[i].value != ";" &&
+         tokens[i].type == NUMBER) {
+    errorCodes.push_back(
+        static_cast<u_int16_t>(std::atoi(tokens[i].value.c_str())));
+    i++;
+  }
+
+  if (i < tokens.size() && tokens[i].value != ";") {
+    errorPage = tokens[i].value;
+    i++;
+  }
+
+  if (!errorCodes.empty() && !errorPage.empty()) {
+    for (size_t j = 0; j < errorCodes.size(); ++j) {
+      server.insertErrorPage(errorCodes[j], errorPage);
+    }
+  }
+
+  if (i >= tokens.size() || tokens[i].value != ";") {
+    throw std::runtime_error("Expected ';' after 'error_page' directive");
+  }
+  i++;
+
+  return i;
+}
+
+static size_t parseIndexDirective(const std::vector<Token>& tokens,
+                                  size_t i,
+                                  Server& server) {
+  std::vector<std::string> indexFiles;
+  while (i < tokens.size() && tokens[i].value != ";") {
+    indexFiles.push_back(tokens[i].value);
+    i++;
+  }
+  if (i >= tokens.size() || tokens[i].value != ";") {
+    throw std::runtime_error("Expected ';' after 'index' directive");
+  }
+  i++;
+  server.insertIndex(indexFiles);
+  return i;
+}
+
+static size_t parseBasicServerDirective(const std::vector<Token>& tokens,
+                                        size_t i,
+                                        Server& server,
+                                        const std::string& directive) {
+  if (directive == "listen" && i < tokens.size()) {
+    while (i < tokens.size() && tokens[i].value != ";") {
+      std::string listenValue = tokens[i].value;
+      u_int16_t port = 80;
+      std::string addr = "0.0.0.0";
+
+      size_t colonPos = listenValue.find(':');
+      if (colonPos != std::string::npos) {
+        addr = listenValue.substr(0, colonPos);
+        std::string portStr = listenValue.substr(colonPos + 1);
+        if (!portStr.empty()) {
+          port = static_cast<u_int16_t>(std::atoi(portStr.c_str()));
+        }
+        server.insertListen(port, addr);
+      } else {
+        if (!listenValue.empty()) {
+          port = static_cast<u_int16_t>(std::atoi(listenValue.c_str()));
         }
         server.insertListen(port);
-        i++;
+      }
+      i++;
     }
-    else if (directive == "server_name" && i < tokens.size())
-    {
-        server.insertServerNames(tokens[i].value);
-        i++;
+    if (i >= tokens.size() || tokens[i].value != ";") {
+      throw std::runtime_error("Expected ';' after 'listen' directive");
     }
-    else if (directive == "root" && i < tokens.size())
-    {
-        server.setRoot(tokens[i].value);
-        i++;
+    i++;
+  } else if (directive == "server_name" && i < tokens.size()) {
+    while (i < tokens.size() && tokens[i].value != ";") {
+      server.insertServerNames(tokens[i].value);
+      i++;
     }
-    else if (directive == "client_max_body_size" && i < tokens.size())
-    {
-        std::string sizeStr = tokens[i].value;
-        server.setClientMaxBodySize(sizeStr);
-        i++;
+    if (i >= tokens.size() || tokens[i].value != ";") {
+      throw std::runtime_error("Expected ';' after 'server_name' directive");
     }
-    else if (directive == "autoindex" && i < tokens.size())
-    {
-        if (tokens[i].value == "on")
-        {
-            server.activateAutoIndex();
-        }
-        i++;
+    i++;
+  } else if (directive == "root" && i < tokens.size()) {
+    server.setRoot(tokens[i].value);
+    i++;
+    if (i >= tokens.size() || tokens[i].value != ";") {
+      throw std::runtime_error("Expected ';' after 'root' directive");
     }
-    return i;
+    i++;
+  } else if (directive == "client_max_body_size" && i < tokens.size()) {
+    std::string sizeStr = tokens[i].value;
+    server.setClientMaxBodySize(sizeStr);
+    i++;
+    if (i >= tokens.size() || tokens[i].value != ";") {
+      throw std::runtime_error(
+          "Expected ';' after 'client_max_body_size' directive");
+    }
+    i++;
+  } else if (directive == "autoindex" && i < tokens.size()) {
+    if (tokens[i].value == "on") {
+      server.activateAutoIndex();
+    }
+    i++;
+    if (i >= tokens.size() || tokens[i].value != ";") {
+      throw std::runtime_error("Expected ';' after 'autoindex' directive");
+    }
+    i++;
+  }
+  return i;
 }
 
-static size_t parseServerDirective(const std::vector<Token> &tokens, size_t i, Server &server, int &serverBraceLevel, int &httpBraceLevel)
-{
-    if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL)
-    {
-        std::string directive = tokens[i].value;
-        i++;
+static size_t parseServerDirective(const std::vector<Token>& tokens,
+                                   size_t i,
+                                   Server& server,
+                                   int& serverBraceLevel,
+                                   int& httpBraceLevel) {
+  if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL) {
+    std::string directive = tokens[i].value;
+    i++;
 
-        if (directive == "index" && i < tokens.size())
-        {
-            i = parseIndexDirective(tokens, i, server);
-        }
-        else if (directive == "error_page" && i < tokens.size())
-        {
-            i = parseErrorPageDirective(tokens, i, server);
-        }
-        else if (directive == "location")
-        {
-            i = parseLocation(tokens, i, server, serverBraceLevel, httpBraceLevel);
-        }
-        else
-        {
-            i = parseBasicServerDirective(tokens, i, server, directive);
-        }
+    if (directive == "index" && i < tokens.size()) {
+      i = parseIndexDirective(tokens, i, server);
+    } else if (directive == "error_page" && i < tokens.size()) {
+      i = parseErrorPageDirective(tokens, i, server);
+    } else if (directive == "location") {
+      i = parseLocation(tokens, i, server, serverBraceLevel, httpBraceLevel);
+    } else {
+      i = parseBasicServerDirective(tokens, i, server, directive);
     }
-    else
-    {
-        // Skip semicolons and other tokens
-        if (tokens[i].value == ";")
-            i++;
-        else
-            i++;
-    }
-    return i;
+  }
+  return i;
 }
 
-static size_t parseServer(const std::vector<Token> &tokens, size_t i, Container &container, int &httpBraceLevel)
-{
-    Server server;
-    i++; // move past "server"
+static size_t parseServer(const std::vector<Token>& tokens,
+                          size_t i,
+                          Container& container,
+                          int& httpBraceLevel) {
+  Server server;
+  i++;
 
-    int serverBraceLevel = 0;
-    // Skip opening brace and count it
-    if (i < tokens.size() && tokens[i].value == "{")
-    {
-        serverBraceLevel++;
-        httpBraceLevel++; // Also count for http level
+  int serverBraceLevel = 0;
+  if (i >= tokens.size() || tokens[i].value != "{") {
+    throw std::runtime_error("Expected '{' after 'server'");
+  }
+  serverBraceLevel++;
+  httpBraceLevel++;
+  i++;
+  while (i < tokens.size() && serverBraceLevel > 0) {
+    // Track server brace levels
+    if (tokens[i].value == "{") {
+      serverBraceLevel++;
+      httpBraceLevel++;
+    } else if (tokens[i].value == "}") {
+      if (serverBraceLevel <= 0) {
+        throw std::runtime_error("Unexpected '}' in server block");
+      }
+      serverBraceLevel--;
+      httpBraceLevel--;
+      if (serverBraceLevel == 0) {
         i++;
+        break;
+      }
     }
 
-    // Parse server block
-    while (i < tokens.size() && serverBraceLevel > 0)
-    {
-        // Track server brace levels
-        if (tokens[i].value == "{")
-        {
-            serverBraceLevel++;
-            httpBraceLevel++;
-        }
-        else if (tokens[i].value == "}")
-        {
-            serverBraceLevel--;
-            httpBraceLevel--;
-            if (serverBraceLevel == 0)
-            {
-                i++; // Move past the closing brace
-                break;
-            }
-        }
+    i = parseServerDirective(tokens, i, server, serverBraceLevel,
+                             httpBraceLevel);
+  }
 
-        i = parseServerDirective(tokens, i, server, serverBraceLevel, httpBraceLevel);
-    }
+  if (serverBraceLevel != 0) {
+    throw std::runtime_error("Unclosed 'server' block: missing '}'");
+  }
 
-    container.insertServer(server);
-    return i;
+  container.insertServer(server);
+  return i;
 }
 
-Container parser(const std::vector<Token> &tokens)
-{
-    Container container;
+Container parser(const std::vector<Token>& tokens) {
+  Container container;
 
-    if (tokens.empty())
-        throw std::runtime_error("Empty configuration");
-    if (!expect("http", tokens[0]))
-        throw std::runtime_error("Expected 'http'");
+  if (tokens.empty())
+    throw std::runtime_error("Empty configuration");
+  if (!expect("http", tokens[0]))
+    throw std::runtime_error("Expected 'http'");
 
-    size_t i = 1;
-    int httpBraceLevel = 0;
+  size_t i = 1;
+  int httpBraceLevel = 0;
 
-    // Skip opening brace of http block and count it
-    if (i < tokens.size() && tokens[i].value == "{")
-    {
-        httpBraceLevel++;
+  if (i >= tokens.size() || tokens[i].value != "{") {
+    throw std::runtime_error("Expected '{' after 'http'");
+  }
+  httpBraceLevel++;
+  i++;
+
+  while (i < tokens.size() && httpBraceLevel > 0) {
+    if (tokens[i].value == "{") {
+      httpBraceLevel++;
+    } else if (tokens[i].value == "}") {
+      if (httpBraceLevel <= 0) {
+        throw std::runtime_error("Unexpected '}' outside of any block");
+      }
+      httpBraceLevel--;
+      if (httpBraceLevel == 0) {
         i++;
+        break;
+      }
     }
 
-    while (i < tokens.size() && httpBraceLevel > 0)
-    {
-        // Track brace levels
-        if (tokens[i].value == "{")
-        {
-            httpBraceLevel++;
-        }
-        else if (tokens[i].value == "}")
-        {
-            httpBraceLevel--;
-            if (httpBraceLevel == 0)
-            {
-                break; 
-            }
-        }
+    if (tokens[i].type == LEVEL && tokens[i].value == "server") {
+      i = parseServer(tokens, i, container, httpBraceLevel);
+    } else {
+      i++;
+    }
+  }
 
-        if (tokens[i].type == LEVEL && tokens[i].value == "server")
-        {
-            i = parseServer(tokens, i, container, httpBraceLevel);
-        }
-        else
-        {
-            i++;
-        }
+  if (httpBraceLevel != 0) {
+    throw std::runtime_error("Unclosed 'http' block: missing '}'");
+  }
+
+  if (i < tokens.size()) {
+    while (i < tokens.size() && tokens[i].value == ";") {
+      i++;
+    }
+    if (i < tokens.size()) {
+      throw std::runtime_error("Unexpected tokens after 'http' block");
+    }
+  }
+
+  if (container.getServers().empty())
+    if (container.getServers().empty()) {
+      throw std::runtime_error("No server blocks defined in configuration");
     }
 
-    return container;
+  return container;
 }

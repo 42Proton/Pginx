@@ -1,6 +1,6 @@
 #include <LocationConfig.hpp>
 
-LocationConfig::LocationConfig() : BaseBlock(), _path("/")
+LocationConfig::LocationConfig() : BaseBlock(), _path("/"), _matchType(PREFIX)
 {
     // Default allowed methods
     _methods.push_back("GET");
@@ -8,7 +8,7 @@ LocationConfig::LocationConfig() : BaseBlock(), _path("/")
     _methods.push_back("DELETE");
 }
 
-LocationConfig::LocationConfig(const std::string &path) : BaseBlock(), _path(path)
+LocationConfig::LocationConfig(const std::string &path) : BaseBlock(), _path(path), _matchType(PREFIX)
 {
     // Default allowed methods
     _methods.push_back("GET");
@@ -16,7 +16,15 @@ LocationConfig::LocationConfig(const std::string &path) : BaseBlock(), _path(pat
     _methods.push_back("DELETE");
 }
 
-LocationConfig::LocationConfig(const LocationConfig &obj) : BaseBlock(obj), _path(obj._path), _methods(obj._methods)
+LocationConfig::LocationConfig(const std::string &path, MatchType matchType) : BaseBlock(), _path(path), _matchType(matchType)
+{
+    // Default allowed methods
+    _methods.push_back("GET");
+    _methods.push_back("POST");
+    _methods.push_back("DELETE");
+}
+
+LocationConfig::LocationConfig(const LocationConfig &obj) : BaseBlock(obj), _path(obj._path), _matchType(obj._matchType), _methods(obj._methods)
 {
 }
 
@@ -27,6 +35,16 @@ LocationConfig::~LocationConfig()
 void LocationConfig::setPath(const std::string &path)
 {
     this->_path = path;
+}
+
+void LocationConfig::setMatchType(MatchType matchType)
+{
+    this->_matchType = matchType;
+}
+
+MatchType LocationConfig::getMatchType() const
+{
+    return this->_matchType;
 }
 
 void LocationConfig::setUploadDir(const std::string &dir) {
