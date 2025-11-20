@@ -19,6 +19,7 @@ class LocationConfig : public BaseBlock {
   MatchType _matchType;
   std::vector<std::string> _methods;
   std::string _uploadDir;
+  bool _cgi_enabled;
 
  public:
   LocationConfig();
@@ -33,6 +34,8 @@ class LocationConfig : public BaseBlock {
   void addMethod(const std::string& method);
   void setMethods(const std::vector<std::string>& methods);
   void setUploadDir(const std::string& dir);
+  void setCgiEnabled(bool enabled);
+  bool isCgiEnabled() const;
 
   // Getters
   const std::string& getPath() const;

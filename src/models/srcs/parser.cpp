@@ -86,7 +86,21 @@ static size_t parseLocationDirective(const std::vector<Token>& tokens,
       if (!methods.empty()) {
         location.setMethods(methods);
       }
-    } else {
+    }else if (locationDirective == "cgi_enabled" && i < tokens.size()) {
+      std::string value = tokens[i].value;
+      i++;
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error("Expected ';' after 'cgi_enabled' directive");
+      }
+      i++;
+      if (value == "on") {
+        location.setCgiEnabled(true);
+      } else if (value == "off") {
+        location.setCgiEnabled(false);
+      } else {
+        throw std::runtime_error("Invalid value for 'cgi_enabled': " + value);
+      }
+    }else {
       while (i < tokens.size() && tokens[i].value != ";") {
         i++;
       }

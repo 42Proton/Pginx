@@ -66,6 +66,16 @@ void LocationConfig::addMethod(const std::string &method)
     this->_methods.push_back(method);
 }
 
+void LocationConfig::setCgiEnabled(bool enabled)
+{
+    this->_cgi_enabled = enabled;
+}
+
+bool LocationConfig::isCgiEnabled() const
+{
+    return this->_cgi_enabled;
+}
+
 void LocationConfig::setMethods(const std::vector<std::string> &methods)
 {
     this->_methods = methods;

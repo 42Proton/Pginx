@@ -322,7 +322,7 @@ void PostRequest::handle(HttpResponse &res)
     {
         res.setErrorFromContext(403, _ctx);
         return;
-    }
+    } 
 
     bool createdNew = true;
     std::ifstream checkFile(fullPath.c_str());
