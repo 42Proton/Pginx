@@ -12,7 +12,7 @@ bool isAttribute(const std::string& s) {
   return s == "root" || s == "client_max_body_size" || s == "listen" ||
          s == "index" || s == "error_page" || s == "server_name" ||
          s == "autoindex" || s == "redirect" || s == "index" || s == "cgi" ||
-         s == "allow_methods" || s == "upload_dir";
+         s == "allow_methods" || s == "upload_dir" || s == "cgi_enabled";
 }
 bool isAllDigits(const std::string& s) {
   for (size_t i = 0; i < s.size(); ++i)
@@ -128,7 +128,7 @@ int isAllowedTokens(const std::vector<Token>& tokens) {
         if (!isalnum(c) && c != '_' && c != '.' && c != '/' && c != '-' &&
             c != '=' && c != ':' && c != '?' && c != '&' && c != '%' && 
             c != '@' && c != '!' && c != '*' && c != '+' && c != '~' &&
-            c != '^' && c != '$' && it->quoted == 0) {
+            c != '^' && c != '$' && c != '\\' && it->quoted == 0) {
           throw std::runtime_error("Invalid identifier: " + val);
         }
       }

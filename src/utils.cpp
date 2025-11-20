@@ -165,10 +165,10 @@ void printContainer(const Container& container) {
               << std::endl;
 
     // Error pages
-    const std::map<u_int16_t, std::string>& errorPages =
-        server.getErrorPage(0)
-            ? *reinterpret_cast<const std::map<u_int16_t, std::string>*>(0)
-            : std::map<u_int16_t, std::string>();
+    // const std::map<u_int16_t, std::string>& errorPages =
+    //     server.getErrorPage(0)
+    //         ? *reinterpret_cast<const std::map<u_int16_t, std::string>*>(0)
+    //         : std::map<u_int16_t, std::string>();
     // Note: getErrorPage returns pointer to single page, not full map
     // This is a limitation - we'll just note if error pages are configured
     if (server.getErrorPage(404) != NULL) {
