@@ -53,7 +53,7 @@ HttpRequest *HttpParser::parseRequest(const std::string &rawRequest, Server &ser
     request->setPath(cleanPath);
     request->setVersion(version);
     request->setQuery(query);
-
+    request->setEnabledCgi(location ? location->isCgiEnabled() : false);
     // Parse headers
     size_t headerStart = lineEnd + 2;
     size_t headerEnd = rawRequest.find("\r\n\r\n");

@@ -20,6 +20,7 @@ protected:
     std::map<std::string, std::string> headers;
     std::string body;
     std::map<std::string, std::string> query;
+    bool enabledCgi;
 
     void handleGetOrHead(HttpResponse &res, bool includeBody);
 
@@ -47,6 +48,7 @@ public:
     void addHeader(const std::string &k, const std::string &v);
     void appendBody(const std::string &data);
     void setQuery(const std::map<std::string, std::string> &q);
+    void setEnabledCgi(bool enabled);
 
     // Helpers
     bool isChunked() const;

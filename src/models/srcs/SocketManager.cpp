@@ -454,7 +454,6 @@ void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::s
 {
     Server &myServer = selectServerForClient(readyServerFd);
 
-    // will be replaced by omran part
     RequestGuard request(fillRequest(rawRequest, myServer));
     if (!request.isValid())
     {

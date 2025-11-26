@@ -68,6 +68,11 @@ void HttpRequest::setVersion(const std::string &v)
     version = v;
 }
 
+void HttpRequest::setEnabledCgi(bool enabled)
+{
+    enabledCgi = enabled;
+}
+
 void HttpRequest::addHeader(const std::string &k, const std::string &v)
 {
     headers[k] = v;
