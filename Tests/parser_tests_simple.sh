@@ -16,7 +16,7 @@ if [ ! -x "./pginx" ]; then
     make clean && make
 fi
 
-WEBSERV="./pginx"
+WEBSERV="./webserv"
 TEMP_CONFIG_DIR="Tests/temp_configs"
 
 # Create temp directory for test configs

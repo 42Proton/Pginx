@@ -20,6 +20,8 @@ class LocationConfig : public BaseBlock {
   std::vector<std::string> _methods;
   std::string _uploadDir;
   bool _cgi_enabled;
+  bool _chunked_transfer_encoding;
+  std::map<std::string, std::string> _cgiPassMap;
 
  public:
   LocationConfig();
@@ -36,6 +38,8 @@ class LocationConfig : public BaseBlock {
   void setUploadDir(const std::string& dir);
   void setCgiEnabled(bool enabled);
   bool isCgiEnabled() const;
+  void setTransferEncoding(bool enabled);
+  void setCgiPassMapping(const std::string& extension, const std::string& interpreterPath);
 
   // Getters
   const std::string& getPath() const;

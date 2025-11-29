@@ -12,7 +12,8 @@ bool isAttribute(const std::string& s) {
   return s == "root" || s == "client_max_body_size" || s == "listen" ||
          s == "index" || s == "error_page" || s == "server_name" ||
          s == "autoindex" || s == "redirect" || s == "index" || s == "cgi" ||
-         s == "allow_methods" || s == "upload_dir" || s == "cgi_enabled";
+         s == "allow_methods" || s == "upload_dir" || s == "cgi_enabled"  ||
+         s == "transfer_encoding" || s == "cgi_pass";
 }
 bool isAllDigits(const std::string& s) {
   for (size_t i = 0; i < s.size(); ++i)

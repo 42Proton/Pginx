@@ -100,7 +100,30 @@ static size_t parseLocationDirective(const std::vector<Token>& tokens,
       } else {
         throw std::runtime_error("Invalid value for 'cgi_enabled': " + value);
       }
-    }else {
+    } else if (locationDirective == "transfer_encoding" && i < tokens.size()) {
+      std::string value = tokens[i].value;
+      i++;
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error("Expected ';' after 'transfer_encoding' directive");
+      }
+      i++;
+      if (value == "on") {
+        location.setTransferEncoding(true);
+      } else if (value == "off") {
+        location.setTransferEncoding(false);
+      } else {
+        throw std::runtime_error("Invalid value for 'transfer_encoding': " + value);
+      }
+    } else if (locationDirective == "cgi_pass" && i + 1 < tokens.size()) {
+      std::string extension = tokens[i].value;
+      std::string interpreter = tokens[i + 1].value;
+      i += 2;
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error("Expected ';' after 'cgi_pass' directive");
+      }
+      i++;
+      location.setCgiPassMapping(extension, interpreter);
+    } else {
       while (i < tokens.size() && tokens[i].value != ";") {
         i++;
       }

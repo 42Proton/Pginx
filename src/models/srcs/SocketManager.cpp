@@ -265,6 +265,28 @@ bool SocketManager::isBodyTooLarge(int fd)
 
     std::string headers = requestBuffers[fd].substr(0, header_end);
 
+    // Check if Transfer-Encoding: chunked is present
+    // For chunked encoding, size validation happens after un-chunking
+    size_t te_pos = headers.find("Transfer-Encoding:");
+    if (te_pos != std::string::npos)
+    {
+        std::string te_value = headers.substr(te_pos + 18);
+        size_t te_end = te_value.find("\r\n");
+        if (te_end != std::string::npos)
+            te_value = te_value.substr(0, te_end);
+        
+        // Convert to lowercase for comparison
+        for (size_t i = 0; i < te_value.length(); ++i)
+            te_value[i] = std::tolower(te_value[i]);
+        
+        if (te_value.find("chunked") != std::string::npos)
+        {
+            // Skip validation for chunked requests
+            // Size will be validated after un-chunking
+            return false;
+        }
+    }
+
     // Find Content-Length
     size_t content_length = 0;
     size_t cl_pos = headers.find("Content-Length:");
@@ -395,18 +417,17 @@ HttpRequest *SocketManager::fillRequest(const std::string &rawRequest, Server &s
     std::istringstream lineStream(requestLine);
     std::string method, path, version;
     lineStream >> method >> path >> version;
-
     if (method.empty() || path.empty() || version.empty())
-        return 0; // Malformed request line
-
+    return 0; // Malformed request line
+    
     // Parse query string to get clean path for location matching
     std::string cleanPath;
     std::map<std::string, std::string> query;
     HttpRequest::parseQuery(path, cleanPath, query);
-
+    
     // Find matching location for this path
     const LocationConfig *location = server.findLocation(cleanPath);
-
+    
     // Create RequestContext with server and location
     RequestContext ctx(server, location);
 

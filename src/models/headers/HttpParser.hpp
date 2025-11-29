@@ -16,6 +16,7 @@ private:
     bool parseRequestLine(const std::string &line, std::string &method, std::string &path, std::string &version);
     bool parseHeaders(const std::string &headerSection, HttpRequest *request);
     bool parseBody(const std::string &body, HttpRequest *request);
+    bool parseChunkedBody(const std::string &body, HttpRequest *request);
 
     // Validation helpers
     bool isValidMethod(const std::string &method);

@@ -66,6 +66,11 @@ void LocationConfig::addMethod(const std::string &method)
     this->_methods.push_back(method);
 }
 
+void LocationConfig::setTransferEncoding(bool enabled)
+{
+    this->_chunked_transfer_encoding = enabled;
+}
+
 void LocationConfig::setCgiEnabled(bool enabled)
 {
     this->_cgi_enabled = enabled;
@@ -79,6 +84,11 @@ bool LocationConfig::isCgiEnabled() const
 void LocationConfig::setMethods(const std::vector<std::string> &methods)
 {
     this->_methods = methods;
+}
+
+void LocationConfig::setCgiPassMapping(const std::string &extension, const std::string &interpreterPath)
+{
+    this->_cgiPassMap[extension] = interpreterPath;
 }
 
 const std::string &LocationConfig::getPath() const

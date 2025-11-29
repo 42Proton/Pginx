@@ -273,7 +273,10 @@ void HttpRequest::handleGetOrHead(HttpResponse &res, bool includeBody)
 //--------------------------POST--------------------------
 bool PostRequest::validate(std::string &err) const
 {
-    if (contentLength() == 0)
+    // For chunked requests, body might exist even without Content-Length initially
+    // After un-chunking, the parser should have set Content-Length
+    // Also allow requests with actual body content even if Content-Length is 0
+    if (contentLength() == 0 && body.empty())
     {
         err = "Missing body in POST request";
         return false;
@@ -299,7 +302,6 @@ void PostRequest::handle(HttpResponse &res)
         res.setErrorFromContext(405, _ctx);
         return;
     }
-
     std::string uploadDir;
     if (_ctx.location && !_ctx.location->getUploadDir().empty())
     {
