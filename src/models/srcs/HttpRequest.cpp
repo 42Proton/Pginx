@@ -12,6 +12,7 @@
 
 #include "HttpResponse.hpp"
 #include "HttpUtils.hpp"
+#include "CgiHandle.hpp"
 
 HttpRequest::HttpRequest(const RequestContext &ctx) : _ctx(ctx) {}
 
@@ -207,6 +208,26 @@ void HttpRequest::handleGetOrHead(HttpResponse &res, bool includeBody)
         return;
     }
 
+    if (_ctx.location && _ctx.location->isCgiEnabled())
+    {
+        // Handle CGI requests
+        CgiHandle cgiHandler;
+        std::string scriptPath = _ctx.getFullPath(path);
+        if (scriptPath.empty())
+        {
+            res.setErrorFromContext(500, _ctx);
+            return;
+        }
+        struct stat scriptStat;
+        if (stat(scriptPath.c_str(), &scriptStat) != 0 || !(scriptStat.st_mode & S_IXUSR))
+        {
+            res.setErrorFromContext(403, _ctx);
+            return;
+        }
+        // Execute the CGI script
+        cgiHandler.buildCgiScript(scriptPath, _ctx, res, *this);
+        return;
+    }
     std::string fullPath = _ctx.getFullPath(path);
     struct stat fileStat;
 
@@ -300,6 +321,27 @@ void PostRequest::handle(HttpResponse &res)
     if (!_ctx.isMethodAllowed("POST"))
     {
         res.setErrorFromContext(405, _ctx);
+        return;
+    }
+
+    if (_ctx.location && _ctx.location->isCgiEnabled())
+    {
+        // Handle CGI requests
+        CgiHandle cgiHandler;
+        std::string scriptPath = _ctx.getFullPath(path);
+        if (scriptPath.empty())
+        {
+            res.setErrorFromContext(500, _ctx);
+            return;
+        }
+        struct stat scriptStat;
+        if (stat(scriptPath.c_str(), &scriptStat) != 0 || !(scriptStat.st_mode & S_IXUSR))
+        {
+            res.setErrorFromContext(403, _ctx);
+            return;
+        }
+        // Execute the CGI script
+        cgiHandler.buildCgiScript(scriptPath, _ctx, res, *this);
         return;
     }
     std::string uploadDir;

@@ -25,6 +25,9 @@ class HttpResponse {
         void setHeader(const std::string& key, const std::string& value);
         void setBody(const std::string& b);
         void setVersion(const std::string &v);
+        std::string getHostHeader() const;
+        HttpRequest* getRequest() const; // Assume this function exists to get the associated request
+
 
         std::string build() const;
         

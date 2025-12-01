@@ -466,7 +466,63 @@ HttpRequest *SocketManager::fillRequest(const std::string &rawRequest, Server &s
     }
 
     if (!body.empty())
-        request->appendBody(body);
+    {
+        if (request->isChunked())
+        {
+            std::string unchunkedBody;
+            size_t pos = 0;
+            
+            while (pos < body.length())
+            {
+                // Find chunk size line
+                size_t lineEnd = body.find('\n', pos);
+                if (lineEnd == std::string::npos)
+                    break;
+                
+                std::string sizeLine = body.substr(pos, lineEnd - pos);
+                while (!sizeLine.empty() && (sizeLine[sizeLine.length() - 1] == '\r' || 
+                                             sizeLine[sizeLine.length() - 1] == ' '))
+                    sizeLine.erase(sizeLine.length() - 1);
+                
+                size_t semicolon = sizeLine.find(';');
+                if (semicolon != std::string::npos)
+                    sizeLine = sizeLine.substr(0, semicolon);
+                
+                // Parse hex chunk size
+                std::istringstream hexStream(sizeLine);
+                unsigned long chunkSize;
+                hexStream >> std::hex >> chunkSize;
+                
+                if (hexStream.fail())
+                    break;
+                pos = lineEnd + 1;
+                // Check for terminating chunk
+                if (chunkSize == 0)
+                    break;
+                
+                // Extract chunk data
+                if (pos + chunkSize <= body.length())
+                {
+                    unchunkedBody.append(body.substr(pos, chunkSize));
+                    pos += chunkSize;
+                    
+                    // Skip trailing newline after chunk data
+                    if (pos < body.length() && body[pos] == '\n')
+                        pos++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            
+            request->appendBody(unchunkedBody);
+        }
+        else
+        {
+            request->appendBody(body);
+        }
+    }
 
     return request;
 }

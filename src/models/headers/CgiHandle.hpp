@@ -16,15 +16,16 @@ class HttpRequest;
 class RequestContext;
 
 class CgiHandle{
-  private:
-    CgiHandle();
 
   public:
-  void buildCgiEnvironment(const HttpRequest& request,const RequestContext& ctx,const std::string& scriptPath,const std::string& serverPort,const std::string& clientIP,const std::string &serverName,std::map<std::string, std::string>& envVars);
+  CgiHandle();
+    void buildCgiEnvironment(const HttpRequest& request,const RequestContext& ctx,const std::string& scriptPath, u_int16_t serverPort,const std::string& clientIP,const std::string &serverName,std::map<std::string, std::string>& envVars);
     // std::string getCgiResponse(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData);
     void getInterpreterForScript(std::map<std::string, std::string> &cgiPassMap, const std::string &scriptPath, std::string &interpreterPath);
     void getDirectoryFromPath(const std::string &path, std::string &directoryPath);
-    // void runCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData);
+    void buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, const HttpResponse &res, HttpRequest &request);
+    // void executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData);
+
     // void terminateCgiProcess(pid_t pid);
     class CgiExecutionException : public std::exception {
       public:

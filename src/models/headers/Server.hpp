@@ -41,11 +41,14 @@ class Server : public BaseBlock {
 
     // Most of these are getters and setters for attributes of Servers
     const std::vector<ListenCtx> &getListens() const;
+    u_int16_t getServerPort(std::string server) const;
     const std::vector<std::string> &getServerNames() const;
+    const std::string &getMatchingServerName(const std::string &hostHeader) const;
     void insertListen(u_int16_t port = 80, const std::string &addr = "0.0.0.0");
     void insertServerNames(const std::string &serverName);
     void setRoot(const std::string &root = "www/");
     const std::string &getRoot() const;
+    const std::string &getServerAddr(std::string server) const;
     void setIndexFiles(const std::vector<std::string> &indexFiles);
     const std::vector<std::string> &getIndexFiles() const;
 

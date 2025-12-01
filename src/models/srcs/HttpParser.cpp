@@ -140,7 +140,6 @@ bool HttpParser::parseChunkedBody(const std::string &body, HttpRequest *request)
     
     while (pos < body.length())
     {
-        // Find the next CRLF to get the chunk size line
         size_t lineEnd = body.find("\r\n", pos);
         if (lineEnd == std::string::npos)
         {
@@ -148,22 +147,20 @@ bool HttpParser::parseChunkedBody(const std::string &body, HttpRequest *request)
             return false;
         }
 
-        // Extract chunk size line (hexadecimal)
         std::string sizeLine = body.substr(pos, lineEnd - pos);
-        
-        // Remove chunk extensions (text after semicolon)
         size_t semicolon = sizeLine.find(';');
         if (semicolon != std::string::npos)
         {
             sizeLine = sizeLine.substr(0, semicolon);
         }
-        
-        // Parse hexadecimal chunk size
-        char* endPtr;
-        unsigned long chunkSize = strtoul(sizeLine.c_str(), &endPtr, 16);
+
+        // Parse hex chunk size using stringstream
+        std::istringstream hexStream(sizeLine);
+        unsigned long chunkSize;
+        hexStream >> std::hex >> chunkSize;
         
         // Validate hex parsing
-        if (endPtr == sizeLine.c_str() || (*endPtr != '\0' && *endPtr != '\r'))
+        if (hexStream.fail() || !hexStream.eof())
         {
             lastError = "Invalid chunk size: not a valid hex number";
             return false;
@@ -172,34 +169,24 @@ bool HttpParser::parseChunkedBody(const std::string &body, HttpRequest *request)
         // Move past chunk size line and CRLF
         pos = lineEnd + 2;
         
-        // Chunk size 0 means end of chunked body (acts like EOF)
-        // This is the terminator for chunked encoding
         if (chunkSize == 0)
         {
-            // Last chunk found - may have trailing headers
-            // Skip any trailing headers until final CRLF
+            // Last chunk (terminator) - skip any trailing headers
             while (pos < body.length())
             {
                 size_t trailerEnd = body.find("\r\n", pos);
                 if (trailerEnd == std::string::npos)
                     break;
                 if (trailerEnd == pos)
-                {
-                    // Empty line - end of trailers
                     break;
-                }
                 // Skip trailer line
                 pos = trailerEnd + 2;
             }
             
-            // Set the complete un-chunked body
+            // Set the complete un-chunked body (only the actual data, no chunk metadata)
             request->appendBody(unchunkedBody);
-            // Update Content-Length header to reflect actual body size
-            std::ostringstream contentLength;
-            contentLength << unchunkedBody.length();
-            request->addHeader("content-length", contentLength.str());
             
-             return true;
+            return true;
         }
 
         // Validate we have enough data for this chunk
@@ -227,8 +214,6 @@ bool HttpParser::parseChunkedBody(const std::string &body, HttpRequest *request)
             return false;
         }
     }
-    
-    // If we get here, we didn't find the terminating 0-chunk
     lastError = "Invalid chunked encoding: no terminating chunk found";
     return false;
 }

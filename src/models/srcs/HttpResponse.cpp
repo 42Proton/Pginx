@@ -109,3 +109,12 @@ void HttpResponse::setErrorFromContext(int code, const RequestContext &ctx) {
     setHeader("Content-Type", "text/html");
     setBody(content);
 }
+
+
+std::string HttpResponse::getHostHeader() const {
+    std::map<std::string, std::string>::const_iterator it = headers.find("Host");
+    if (it != headers.end()) {
+        return it->second;
+    }
+    return "";
+}

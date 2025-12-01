@@ -1,4 +1,5 @@
 #include "CgiHandle.hpp"
+#include "HttpResponse.hpp"
 
 const char *CgiHandle::CgiExecutionException::what() const throw() {
     return "CGI Execution Failed";
@@ -57,11 +58,11 @@ std::string urlEncode(const std::string &value) {
 }
 
 
-void buildCgiEnvironment(
+void CgiHandle::buildCgiEnvironment(
     const HttpRequest& request,
     const RequestContext& ctx,
     const std::string& scriptPath,
-    const std::string& serverPort,
+    u_int16_t serverPort,
     const std::string& clientIP,
     const std::string &serverName,
     std::map<std::string, std::string>& envVars)
@@ -107,7 +108,9 @@ void buildCgiEnvironment(
     
     // 7. Server info (from context)
     envVars["SERVER_NAME"] = serverName;
-    envVars["SERVER_PORT"] = serverPort;
+    std::ostringstream portStream;
+    portStream << serverPort;
+    envVars["SERVER_PORT"] = portStream.str();
     envVars["REMOTE_ADDR"] = clientIP;
     
     // 8. Script-specific variables (REQUIRED by subject)
@@ -154,6 +157,13 @@ void CgiHandle::getDirectoryFromPath(const std::string &path, std::string &direc
     }
 }
 
-// void CgiHandle::runCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData) {
+// void CgiHandle::executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData) {
 //     // Implementation goes here
 // }
+
+void CgiHandle::buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, const HttpResponse &res, HttpRequest &request) {
+    std::map<std::string, std::string> envVars;
+    std::string serverName = ctx.server.getMatchingServerName(res.getHostHeader());
+    u_int16_t serverPort = ctx.server.getServerPort(serverName);
+    buildCgiEnvironment(request, ctx, scriptPath, serverPort, ctx.server.getServerAddr(serverName), serverName, envVars);
+}

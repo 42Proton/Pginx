@@ -102,6 +102,31 @@ const std::vector<LocationConfig>& Server::getLocations() const {
   return this->_locations;
 }
 
+const std::string& Server::getMatchingServerName(const std::string &hostHeader) const {
+  // Extract hostname from Host header (remove port if present)
+  std::string hostname = hostHeader;
+  size_t colonPos = hostname.find(':');
+  if (colonPos != std::string::npos) {
+    hostname = hostname.substr(0, colonPos);
+  }
+
+  // Try to find exact match in server_name list
+  for (std::vector<std::string>::const_iterator it = _serverNames.begin();
+       it != _serverNames.end(); ++it) {
+    if (*it == hostname) {
+      return *it;
+    }
+  }
+
+  // If no match found, return first server name or "localhost"
+  if (!_serverNames.empty()) {
+    return _serverNames[0];
+  }
+  
+  static const std::string defaultName = "localhost";
+  return defaultName;
+}
+
 const LocationConfig* Server::findLocation(const std::string& path) const {
   // Find the most specific location that matches the path
   const LocationConfig* bestMatch = NULL;
@@ -117,4 +142,23 @@ const LocationConfig* Server::findLocation(const std::string& path) const {
   }
 
   return bestMatch;
+}
+
+u_int16_t Server::getServerPort(std::string server) const {
+    for (std::vector<ListenCtx>::const_iterator it = _listens.begin(); it != _listens.end(); ++it) {
+        if (server == "" || std::find(_serverNames.begin(), _serverNames.end(), server) != _serverNames.end()) {
+            return it->port;
+        }
+    }
+    return 80;
+}
+
+const std::string& Server::getServerAddr(std::string server) const {
+    for (std::vector<ListenCtx>::const_iterator it = _listens.begin(); it != _listens.end(); ++it) {
+        if (server == "" || std::find(_serverNames.begin(), _serverNames.end(), server) != _serverNames.end()) {
+            return it->addr;
+        }
+    }
+    static const std::string defaultAddr = "0.0.0.0";
+    return defaultAddr;
 }
