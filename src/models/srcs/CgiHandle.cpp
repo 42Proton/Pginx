@@ -1,5 +1,6 @@
 #include "CgiHandle.hpp"
 #include "HttpResponse.hpp"
+#include <fcntl.h>
 
 const char *CgiHandle::CgiExecutionException::what() const throw() {
     return "CGI Execution Failed";
@@ -36,9 +37,7 @@ void freeCharArray(char **envp, size_t size) {
     delete[] envp;
 }
 
-// void CgiHandle::terminateCgiProcess(pid_t pid) {
-//     // Implementation goes here
-// }
+
 
 std::string urlEncode(const std::string &value) {
     std::ostringstream escaped;
@@ -130,10 +129,24 @@ void CgiHandle::buildCgiEnvironment(
         envVars[headerName] = it->second;
     }
 }
-// std::string CgiHandle::getCgiResponse(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData) {
-//     // Implementation goes here
-//     return "";
-// }
+std::string CgiHandle::readCgiResponse(const std::string &inputData, int stdinPipe, int stdoutPipe) {
+    // Write input data to stdin pipe
+    if (!inputData.empty()) {
+        write(stdinPipe, inputData.c_str(), inputData.length());
+    }
+    close(stdinPipe);
+    
+    // Read output from stdout pipe
+    std::string output;
+    char buffer[4096];
+    ssize_t bytesRead;
+    while ((bytesRead = read(stdoutPipe, buffer, sizeof(buffer))) > 0) {
+        output.append(buffer, bytesRead);
+    }
+    close(stdoutPipe);
+    
+    return output;
+}
 
 void CgiHandle::getInterpreterForScript(std::map<std::string, std::string> &cgiPassMap, const std::string &scriptPath, std::string &interpreterPath) {
     size_t dotPos = scriptPath.find_last_of('.');
@@ -157,13 +170,74 @@ void CgiHandle::getDirectoryFromPath(const std::string &path, std::string &direc
     }
 }
 
-// void CgiHandle::executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData) {
-//     // Implementation goes here
-// }
+void CgiHandle::sendCgiOutputToClient(const std::string &cgiOutput) {
+    // This function should send the CGI output to the client.
+    // Implementation depends on the server architecture.
+    // For example, it might write to a socket or store in a response object.
+    // Placeholder implementation:
+    std::cout << "CGI Output:\n" << cgiOutput << std::endl;
+}
+
+void CgiHandle::terminateCgiProcess(pid_t pid) {
+    if (pid > 0) {
+        waitpid(pid, NULL, WNOHANG);
+    }
+}
+
+void CgiHandle::executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData) {
+    
+    int stdinPipe[2];
+    int stdoutPipe[2];
+
+    if (pipe(stdinPipe) == -1 || pipe(stdoutPipe) == -1) {
+        throw CgiExecutionException();
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        close(stdinPipe[0]);
+        close(stdinPipe[1]);
+        close(stdoutPipe[0]);
+        close(stdoutPipe[1]);
+        throw CgiExecutionException();
+    }
+    else if (pid == 0) {
+        // Child process
+        dup2(stdinPipe[0], STDIN_FILENO);
+        dup2(stdoutPipe[1], STDOUT_FILENO);
+
+        close(stdinPipe[1]);
+        close(stdoutPipe[0]);
+        fcntl(stdinPipe[0], F_SETFD, FD_CLOEXEC);
+        fcntl(stdoutPipe[1], F_SETFD, FD_CLOEXEC);
+        fcntl(stdinPipe[0], F_SETFL, O_NONBLOCK);
+        fcntl(stdoutPipe[1], F_SETFL, O_NONBLOCK);
+
+        char **envp = convertMapToCharArray(envVars);
+
+        char *argv[2];
+        argv[0] = const_cast<char *>(scriptPath.c_str());
+        argv[1] = NULL;
+
+        execve(scriptPath.c_str(), argv, envp);
+
+        freeCharArray(envp, envVars.size());
+        exit(1);
+    } else {
+        // Parent process
+        terminateCgiProcess(pid);
+        close(stdinPipe[0]);
+        close(stdoutPipe[1]);
+        std::string cgiOutput = readCgiResponse(inputData, stdinPipe[1], stdoutPipe[0]);
+        sendCgiOutputToClient(cgiOutput);
+        // Process cgiOutput as needed
+    }
+}
 
 void CgiHandle::buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, const HttpResponse &res, HttpRequest &request) {
     std::map<std::string, std::string> envVars;
     std::string serverName = ctx.server.getMatchingServerName(res.getHostHeader());
     u_int16_t serverPort = ctx.server.getServerPort(serverName);
     buildCgiEnvironment(request, ctx, scriptPath, serverPort, ctx.server.getServerAddr(serverName), serverName, envVars);
+    executeCgiScript(scriptPath, envVars, request.getBody());
 }

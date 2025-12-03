@@ -8,6 +8,7 @@
 #include <map>
 #include <cstring>
 #include <iomanip>
+#include <sys/wait.h>
 #include "BaseBlock.hpp"
 #include "HttpRequest.hpp"
 #include "requestContext.hpp"
@@ -20,13 +21,14 @@ class CgiHandle{
   public:
   CgiHandle();
     void buildCgiEnvironment(const HttpRequest& request,const RequestContext& ctx,const std::string& scriptPath, u_int16_t serverPort,const std::string& clientIP,const std::string &serverName,std::map<std::string, std::string>& envVars);
-    // std::string getCgiResponse(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData);
+    std::string readCgiResponse(const std::string &inputData, int stdinPipe, int stdoutPipe);
     void getInterpreterForScript(std::map<std::string, std::string> &cgiPassMap, const std::string &scriptPath, std::string &interpreterPath);
     void getDirectoryFromPath(const std::string &path, std::string &directoryPath);
     void buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, const HttpResponse &res, HttpRequest &request);
-    // void executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData);
+    void executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData);
+    void sendCgiOutputToClient(const std::string &cgiOutput);
 
-    // void terminateCgiProcess(pid_t pid);
+    void terminateCgiProcess(pid_t pid);
     class CgiExecutionException : public std::exception {
       public:
         const char *what() const throw();
