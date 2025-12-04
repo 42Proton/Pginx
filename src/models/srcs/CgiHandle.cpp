@@ -2,6 +2,7 @@
 #include "HttpResponse.hpp"
 #include <fcntl.h>
 
+
 const char *CgiHandle::CgiExecutionException::what() const throw() {
     return "CGI Execution Failed";
 }
@@ -129,6 +130,7 @@ void CgiHandle::buildCgiEnvironment(
         envVars[headerName] = it->second;
     }
 }
+
 std::string CgiHandle::readCgiResponse(const std::string &inputData, int stdinPipe, int stdoutPipe) {
     // Write input data to stdin pipe
     if (!inputData.empty()) {
@@ -170,21 +172,17 @@ void CgiHandle::getDirectoryFromPath(const std::string &path, std::string &direc
     }
 }
 
-void CgiHandle::sendCgiOutputToClient(const std::string &cgiOutput) {
-    // This function should send the CGI output to the client.
-    // Implementation depends on the server architecture.
-    // For example, it might write to a socket or store in a response object.
-    // Placeholder implementation:
-    std::cout << "CGI Output:\n" << cgiOutput << std::endl;
+void CgiHandle::sendCgiOutputToClient(const std::string &cgiOutput, HttpResponse &res) {
+    res.setStatus(200, "OK");
+    res.setBody(cgiOutput);
+    std::stringstream lengthStream;
+    lengthStream << cgiOutput.size();
+    res.setHeader("Content-Length", lengthStream.str());
+    res.setHeader("Content-Type", "text/html");
+    res.build();
 }
 
-void CgiHandle::terminateCgiProcess(pid_t pid) {
-    if (pid > 0) {
-        waitpid(pid, NULL, WNOHANG);
-    }
-}
-
-void CgiHandle::executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData) {
+std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData) {
     
     int stdinPipe[2];
     int stdoutPipe[2];
@@ -202,16 +200,13 @@ void CgiHandle::executeCgiScript(const std::string &scriptPath, const std::map<s
         throw CgiExecutionException();
     }
     else if (pid == 0) {
-        // Child process
         dup2(stdinPipe[0], STDIN_FILENO);
         dup2(stdoutPipe[1], STDOUT_FILENO);
 
         close(stdinPipe[1]);
         close(stdoutPipe[0]);
-        fcntl(stdinPipe[0], F_SETFD, FD_CLOEXEC);
-        fcntl(stdoutPipe[1], F_SETFD, FD_CLOEXEC);
-        fcntl(stdinPipe[0], F_SETFL, O_NONBLOCK);
-        fcntl(stdoutPipe[1], F_SETFL, O_NONBLOCK);
+        close(stdinPipe[0]);
+        close(stdoutPipe[1]);
 
         char **envp = convertMapToCharArray(envVars);
 
@@ -220,24 +215,37 @@ void CgiHandle::executeCgiScript(const std::string &scriptPath, const std::map<s
         argv[1] = NULL;
 
         execve(scriptPath.c_str(), argv, envp);
-
         freeCharArray(envp, envVars.size());
         exit(1);
     } else {
-        // Parent process
-        terminateCgiProcess(pid);
         close(stdinPipe[0]);
         close(stdoutPipe[1]);
         std::string cgiOutput = readCgiResponse(inputData, stdinPipe[1], stdoutPipe[0]);
-        sendCgiOutputToClient(cgiOutput);
-        // Process cgiOutput as needed
+        
+        int status;
+        waitpid(pid, &status, 0);
+        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+            throw CgiExecutionException();
+        }
+        return cgiOutput;
     }
 }
-
-void CgiHandle::buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, const HttpResponse &res, HttpRequest &request) {
+void CgiHandle::buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, HttpResponse &res, HttpRequest &request, sockaddr_in &clientAddr) {
     std::map<std::string, std::string> envVars;
     std::string serverName = ctx.server.getMatchingServerName(res.getHostHeader());
     u_int16_t serverPort = ctx.server.getServerPort(serverName);
-    buildCgiEnvironment(request, ctx, scriptPath, serverPort, ctx.server.getServerAddr(serverName), serverName, envVars);
-    executeCgiScript(scriptPath, envVars, request.getBody());
+    std::string clientIP = inet_ntoa(clientAddr.sin_addr);
+    buildCgiEnvironment(request, ctx, scriptPath, serverPort, clientIP, serverName, envVars);
+    try
+    {
+        std::string cgiOutput = executeCgiScript(scriptPath, envVars, request.getBody());
+        sendCgiOutputToClient(cgiOutput, res);
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        res.setErrorFromContext(500, ctx);
+    }
+    
 }
+

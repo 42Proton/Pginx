@@ -62,8 +62,8 @@ public:
   const std::vector<int> &getSockets() const;
 
   void handleClients();
-  void handleRequest(int readyServerFd, int epoll_fd);
-  void acceptNewClient(int readyServerFd, int epoll_fd);
+  void handleRequest(int readyServerFd, int epoll_fd, sockaddr_in &clientAddr);
+  void acceptNewClient(int readyServerFd, int epoll_fd, sockaddr_in &clientAddr, socklen_t &clientLen);
   void handleTimeouts(int epoll_fd);
   void sendBuffer(int fd, int epfd);
   bool isRequestTooLarge(int fd);
@@ -80,7 +80,7 @@ public:
 
   void sendHttpResponse(int fd, int epfd, const HttpResponse &res);
   HttpRequest *fillRequest(const std::string &rawRequest, Server &server);
-  void processFullRequest(int readyServerFd, int epfd, const std::string &rawRequest);
+  void processFullRequest(int readyServerFd, int epfd, const std::string &rawRequest, sockaddr_in &clientAddr);
 };
 
 #endif

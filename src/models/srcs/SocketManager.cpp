@@ -184,9 +184,9 @@ bool SocketManager::isServerSocket(int fd) const
     return false;
 }
 
-void SocketManager::acceptNewClient(int readyServerFd, int epfd)
+void SocketManager::acceptNewClient(int readyServerFd, int epfd, sockaddr_in &clientAddr, socklen_t &clientLen)
 {
-    SocketGuard connectionGuard(accept(readyServerFd, NULL, NULL));
+    SocketGuard connectionGuard(accept(readyServerFd, (sockaddr *)&clientAddr, &clientLen));
     if (!connectionGuard.isValid())
         return;
 
@@ -527,7 +527,7 @@ HttpRequest *SocketManager::fillRequest(const std::string &rawRequest, Server &s
     return request;
 }
 
-void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::string &rawRequest)
+void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::string &rawRequest, sockaddr_in &clientAddr)
 {
     Server &myServer = selectServerForClient(readyServerFd);
 
@@ -560,7 +560,7 @@ void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::s
     }
 
     HttpResponse res;
-    request->handle(res);
+    request->handle(res, clientAddr);
     res.setVersion("HTTP/1.0");
     sendBuffers[readyServerFd] = res.build();
 
@@ -601,7 +601,7 @@ bool SocketManager::validateRequestSize(int fd, int epfd)
     return true;
 }
 
-void SocketManager::handleRequest(int readyServerFd, int epfd)
+void SocketManager::handleRequest(int readyServerFd, int epfd, sockaddr_in &clientAddr)
 {
     char buf[4096];
 
@@ -635,7 +635,7 @@ void SocketManager::handleRequest(int readyServerFd, int epfd)
     size_t header_end = requestBuffers[readyServerFd].find("\r\n\r\n");
     if (header_end != std::string::npos)
     {
-        processFullRequest(readyServerFd, epfd, requestBuffers[readyServerFd]);
+        processFullRequest(readyServerFd, epfd, requestBuffers[readyServerFd], clientAddr);
         requestBuffers[readyServerFd].clear();
     }
 }
@@ -692,6 +692,8 @@ void SocketManager::sendBuffer(int fd, int epfd)
 
 void SocketManager::handleClients()
 {
+    sockaddr_in clientAddr;
+    socklen_t clientLen = sizeof(clientAddr);
     EpollGuard epollGuard(epoll_create1(EPOLL_DEFAULT));
     if (!epollGuard.isValid())
         throw std::runtime_error("Failed to create epoll instance");
@@ -733,9 +735,9 @@ void SocketManager::handleClients()
                 continue;
             }
             if (isServerSocket(readyServerFd))
-                acceptNewClient(readyServerFd, epfd);
+                acceptNewClient(readyServerFd, epfd, clientAddr, clientLen);
             else if (events[i].events & EPOLLIN)
-                handleRequest(readyServerFd, epfd);
+                handleRequest(readyServerFd, epfd, clientAddr);
             if (events[i].events & EPOLLOUT)
                 sendBuffer(readyServerFd, epfd);
         }

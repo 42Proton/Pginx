@@ -17,7 +17,13 @@ void BaseBlock::setRoot(const std::string &root)
 {
     this->_root.clear();
     if (!root.size() || root[0] != '/')
-        this->_root = PGINX_PREFIX;
+    {
+        char cwd[4096];
+        if (getcwd(cwd, sizeof(cwd)) != NULL)
+            this->_root = std::string(cwd) + "/";
+        else
+            this->_root = PGINX_PREFIX;
+    }
     this->_root.append(root);
     if (str_back(root) != '/')
         this->_root.push_back('/');

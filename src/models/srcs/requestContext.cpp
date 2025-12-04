@@ -50,7 +50,6 @@ bool RequestContext::getAutoIndex() const {
 bool RequestContext::isMethodAllowed(const std::string& method) const {
   if (location)
     return location->isMethodAllowed(method);
-  // If no location-specific restrictions, allow common HTTP methods
   return (method == "GET" || method == "HEAD" || method == "POST" ||
           method == "PUT" || method == "DELETE" || method == "PATCH");
 }
@@ -82,7 +81,6 @@ std::string RequestContext::getFullPath(const std::string& requestPath) const {
     fullPath += requestPath;
   }
 
-  std::cout << "Resolved full path: " << fullPath << '\n';
   return fullPath;
 }
 

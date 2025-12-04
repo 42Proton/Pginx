@@ -9,6 +9,9 @@
 #include <cstring>
 #include <iomanip>
 #include <sys/wait.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "BaseBlock.hpp"
 #include "HttpRequest.hpp"
 #include "requestContext.hpp"
@@ -24,11 +27,10 @@ class CgiHandle{
     std::string readCgiResponse(const std::string &inputData, int stdinPipe, int stdoutPipe);
     void getInterpreterForScript(std::map<std::string, std::string> &cgiPassMap, const std::string &scriptPath, std::string &interpreterPath);
     void getDirectoryFromPath(const std::string &path, std::string &directoryPath);
-    void buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, const HttpResponse &res, HttpRequest &request);
-    void executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData);
-    void sendCgiOutputToClient(const std::string &cgiOutput);
+    void buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, HttpResponse &res, HttpRequest &request, sockaddr_in &clientAddr);
+    std::string executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData);
+    void sendCgiOutputToClient(const std::string &cgiOutput, HttpResponse &res);
 
-    void terminateCgiProcess(pid_t pid);
     class CgiExecutionException : public std::exception {
       public:
         const char *what() const throw();
