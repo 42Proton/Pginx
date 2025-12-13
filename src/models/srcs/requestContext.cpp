@@ -23,7 +23,9 @@ Location (Specific Path Configuration):
 RequestContext::RequestContext(const Server& srv, const LocationConfig* loc)
     : server(srv), location(loc), rootDir("") {
   rootDir = server.getRoot();
-  if (location && !location->getRoot().empty())
+  // Only use location's root if it's explicitly set (not the default)
+  if (location && !location->getRoot().empty() &&
+      location->getRoot() != DEFAULT_ROOT_PATH)
     rootDir = location->getRoot();
 }
 

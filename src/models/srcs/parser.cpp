@@ -86,7 +86,7 @@ static size_t parseLocationDirective(const std::vector<Token>& tokens,
       if (!methods.empty()) {
         location.setMethods(methods);
       }
-    }else if (locationDirective == "cgi_enabled" && i < tokens.size()) {
+    } else if (locationDirective == "cgi_enabled" && i < tokens.size()) {
       std::string value = tokens[i].value;
       i++;
       if (i >= tokens.size() || tokens[i].value != ";") {
@@ -104,7 +104,8 @@ static size_t parseLocationDirective(const std::vector<Token>& tokens,
       std::string value = tokens[i].value;
       i++;
       if (i >= tokens.size() || tokens[i].value != ";") {
-        throw std::runtime_error("Expected ';' after 'transfer_encoding' directive");
+        throw std::runtime_error(
+            "Expected ';' after 'transfer_encoding' directive");
       }
       i++;
       if (value == "on") {
@@ -112,7 +113,8 @@ static size_t parseLocationDirective(const std::vector<Token>& tokens,
       } else if (value == "off") {
         location.setTransferEncoding(false);
       } else {
-        throw std::runtime_error("Invalid value for 'transfer_encoding': " + value);
+        throw std::runtime_error("Invalid value for 'transfer_encoding': " +
+                                 value);
       }
     } else if (locationDirective == "cgi_pass" && i + 1 < tokens.size()) {
       std::string extension = tokens[i].value;
@@ -426,49 +428,73 @@ Container parser(const std::vector<Token>& tokens) {
 
   if (tokens.empty())
     throw std::runtime_error("Empty configuration");
-  if (!expect("http", tokens[0]))
-    throw std::runtime_error("Expected 'http'");
 
-  size_t i = 1;
+  size_t i = 0;
   int httpBraceLevel = 0;
 
-  if (i >= tokens.size() || tokens[i].value != "{") {
-    throw std::runtime_error("Expected '{' after 'http'");
-  }
-  httpBraceLevel++;
-  i++;
+  // Check if config starts with 'http' block or directly with 'server' blocks
+  bool hasHttpBlock = expect("http", tokens[0]);
 
-  while (i < tokens.size() && httpBraceLevel > 0) {
-    if (tokens[i].value == "{") {
-      httpBraceLevel++;
-    } else if (tokens[i].value == "}") {
-      if (httpBraceLevel <= 0) {
-        throw std::runtime_error("Unexpected '}' outside of any block");
+  if (hasHttpBlock) {
+    // Parse with http block wrapper
+    i = 1;
+    if (i >= tokens.size() || tokens[i].value != "{") {
+      throw std::runtime_error("Expected '{' after 'http'");
+    }
+    httpBraceLevel++;
+    i++;
+
+    while (i < tokens.size() && httpBraceLevel > 0) {
+      if (tokens[i].value == "{") {
+        httpBraceLevel++;
+      } else if (tokens[i].value == "}") {
+        if (httpBraceLevel <= 0) {
+          throw std::runtime_error("Unexpected '}' outside of any block");
+        }
+        httpBraceLevel--;
+        if (httpBraceLevel == 0) {
+          i++;
+          break;
+        }
       }
-      httpBraceLevel--;
-      if (httpBraceLevel == 0) {
+
+      if (tokens[i].type == LEVEL && tokens[i].value == "server") {
+        i = parseServer(tokens, i, container, httpBraceLevel);
+      } else {
         i++;
+      }
+    }
+
+    if (httpBraceLevel != 0) {
+      throw std::runtime_error("Unclosed 'http' block: missing '}'");
+    }
+
+    if (i < tokens.size()) {
+      while (i < tokens.size() && tokens[i].value == ";") {
+        i++;
+      }
+      if (i < tokens.size()) {
+        throw std::runtime_error("Unexpected tokens after 'http' block");
+      }
+    }
+  } else {
+    // Parse server blocks directly without http wrapper
+    while (i < tokens.size()) {
+      // Skip semicolons between server blocks
+      while (i < tokens.size() && tokens[i].value == ";") {
+        i++;
+      }
+
+      if (i >= tokens.size()) {
         break;
       }
-    }
 
-    if (tokens[i].type == LEVEL && tokens[i].value == "server") {
-      i = parseServer(tokens, i, container, httpBraceLevel);
-    } else {
-      i++;
-    }
-  }
-
-  if (httpBraceLevel != 0) {
-    throw std::runtime_error("Unclosed 'http' block: missing '}'");
-  }
-
-  if (i < tokens.size()) {
-    while (i < tokens.size() && tokens[i].value == ";") {
-      i++;
-    }
-    if (i < tokens.size()) {
-      throw std::runtime_error("Unexpected tokens after 'http' block");
+      if (tokens[i].type == LEVEL && tokens[i].value == "server") {
+        int dummyBraceLevel = 0;  // Reset for each server block
+        i = parseServer(tokens, i, container, dummyBraceLevel);
+      } else {
+        throw std::runtime_error("Expected 'server' block at top level");
+      }
     }
   }
 
