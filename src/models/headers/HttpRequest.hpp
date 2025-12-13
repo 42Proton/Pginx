@@ -25,7 +25,7 @@ protected:
     std::map<std::string, std::string> query;
     bool enabledCgi;
 
-    void handleGetOrHead(HttpResponse &res, bool includeBody, sockaddr_in &clientAddr);
+    void handleGetOrHead(HttpResponse &res, bool includeBody, sockaddr_in &clientAddr, int epollFd);
 
 private:
     // Prevent copying
@@ -62,7 +62,7 @@ public:
 
     // Validation and handling
     virtual bool validate(std::string &err) const;
-    virtual void handle(HttpResponse &res, sockaddr_in &clientAddr) = 0;
+    virtual void handle(HttpResponse &res, sockaddr_in &clientAddr, int epollFd) = 0;
     };
 
 // Request subclasses
@@ -73,7 +73,7 @@ public:
     virtual ~GetHeadRequest();
 
     virtual bool validate(std::string &err) const;
-    virtual void handle(HttpResponse &res, sockaddr_in &clientAddr);
+    virtual void handle(HttpResponse &res, sockaddr_in &clientAddr, int epollFd);
 };
 
 class PostRequest : public HttpRequest
@@ -86,7 +86,7 @@ public:
     virtual ~PostRequest();
 
     virtual bool validate(std::string &err) const;
-    virtual void handle(HttpResponse &res, sockaddr_in &clientAddr);
+    virtual void handle(HttpResponse &res, sockaddr_in &clientAddr, int epollFd);
 };
 
 class PutRequest : public HttpRequest
@@ -94,7 +94,7 @@ class PutRequest : public HttpRequest
 public:
     PutRequest();
     virtual bool validate(std::string &err) const;
-    virtual void handle(HttpResponse &res, sockaddr_in &clientAddr);
+    virtual void handle(HttpResponse &res, sockaddr_in &clientAddr, int epollFd);
 };
 
 class PatchRequest : public HttpRequest
@@ -102,7 +102,7 @@ class PatchRequest : public HttpRequest
 public:
     PatchRequest();
     virtual bool validate(std::string &err) const;
-    virtual void handle(HttpResponse &res, sockaddr_in &clientAddr);
+    virtual void handle(HttpResponse &res, sockaddr_in &clientAddr, int epollFd);
 };
 
 class DeleteRequest : public HttpRequest
@@ -115,8 +115,10 @@ public:
     virtual ~DeleteRequest();
 
     virtual bool validate(std::string &err) const;
-    virtual void handle(HttpResponse &res, sockaddr_in &clientAddr);
-}; // // Factory function
+    virtual void handle(HttpResponse &res, sockaddr_in &clientAddr, int epollFd);
+};
+
+// Factory function
 HttpRequest *makeRequestByMethod(const std::string &m, const RequestContext &ctx);
 
 #endif

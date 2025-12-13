@@ -540,27 +540,27 @@ void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::s
     }
 
     // Validate the request before handling it
-    std::string validationError;
-    if (!request->validate(validationError))
-    {
-        // Request validation failed
-        HttpResponse res;
-        res.setError(400, "Bad Request");
-        res.setBody("<h1>400 Bad Request</h1><p>" + validationError + "</p>");
-        res.setVersion("HTTP/1.0");
-        sendBuffers[readyServerFd] = res.build();
+    // std::string validationError;
+    // if (!request->validate(validationError))
+    // {
+    //     // Request validation failed
+    //     HttpResponse res;
+    //     res.setError(400, "Bad Request");
+    //     res.setBody("<h1>400 Bad Request</h1><p>" + validationError + "</p>");
+    //     res.setVersion("HTTP/1.0");
+    //     sendBuffers[readyServerFd] = res.build();
 
-        struct epoll_event ev;
-        ev.events = EPOLLIN | EPOLLOUT;
-        ev.data.fd = readyServerFd;
-        epoll_ctl(epfd, EPOLL_CTL_MOD, readyServerFd, &ev);
+    //     struct epoll_event ev;
+    //     ev.events = EPOLLIN | EPOLLOUT;
+    //     ev.data.fd = readyServerFd;
+    //     epoll_ctl(epfd, EPOLL_CTL_MOD, readyServerFd, &ev);
 
-        requestBuffers[readyServerFd].clear();
-        return; // RequestGuard automatically deletes on scope exit
-    }
+    //     requestBuffers[readyServerFd].clear();
+    //     return; // RequestGuard automatically deletes on scope exit
+    // }
 
     HttpResponse res;
-    request->handle(res, clientAddr);
+    request->handle(res, clientAddr, epfd);
     res.setVersion("HTTP/1.0");
     sendBuffers[readyServerFd] = res.build();
 

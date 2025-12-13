@@ -1,6 +1,7 @@
 #include "CgiHandle.hpp"
 #include "HttpResponse.hpp"
 #include <fcntl.h>
+#include <sys/epoll.h>
 
 
 const char *CgiHandle::CgiExecutionException::what() const throw() {
@@ -37,8 +38,6 @@ void freeCharArray(char **envp, size_t size) {
     }
     delete[] envp;
 }
-
-
 
 std::string urlEncode(const std::string &value) {
     std::ostringstream escaped;
@@ -150,7 +149,7 @@ std::string CgiHandle::readCgiResponse(const std::string &inputData, int stdinPi
     return output;
 }
 
-void CgiHandle::getInterpreterForScript(std::map<std::string, std::string> &cgiPassMap, const std::string &scriptPath, std::string &interpreterPath) {
+void CgiHandle::getInterpreterForScript(const std::map<std::string, std::string> &cgiPassMap, const std::string &scriptPath, std::string &interpreterPath) {
     size_t dotPos = scriptPath.find_last_of('.');
     if (dotPos != std::string::npos) {
         std::string extension = scriptPath.substr(dotPos);
@@ -163,14 +162,14 @@ void CgiHandle::getInterpreterForScript(std::map<std::string, std::string> &cgiP
     interpreterPath = "";
 }
 
-void CgiHandle::getDirectoryFromPath(const std::string &path, std::string &directoryPath) {
-    size_t pos = path.find_last_of('/');
-    if (pos != std::string::npos) {
-        directoryPath = path.substr(0, pos);
-    } else {
-        directoryPath = ".";
-    }
-}
+// void CgiHandle::getDirectoryFromPath(const std::string &path, std::string &directoryPath) {
+//     size_t pos = path.find_last_of('/');
+//     if (pos != std::string::npos) {
+//         directoryPath = path.substr(0, pos);
+//     } else {
+//         directoryPath = ".";
+//     }
+// }
 
 void CgiHandle::sendCgiOutputToClient(const std::string &cgiOutput, HttpResponse &res) {
     res.setStatus(200, "OK");
@@ -182,10 +181,12 @@ void CgiHandle::sendCgiOutputToClient(const std::string &cgiOutput, HttpResponse
     res.build();
 }
 
-std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData) {
-    
+std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData,
+    const std::map<std::string, std::string> &cgiPassMap, int epollFd) {
+
     int stdinPipe[2];
     int stdoutPipe[2];
+    std::string interpreterPath;
 
     if (pipe(stdinPipe) == -1 || pipe(stdoutPipe) == -1) {
         throw CgiExecutionException();
@@ -209,7 +210,16 @@ std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std
         close(stdoutPipe[1]);
 
         char **envp = convertMapToCharArray(envVars);
-
+        getInterpreterForScript(cgiPassMap, scriptPath, interpreterPath);
+        if (!interpreterPath.empty()) {
+            char *argv[3];
+            argv[0] = const_cast<char *>(interpreterPath.c_str());
+            argv[1] = const_cast<char *>(scriptPath.c_str());
+            argv[2] = NULL;
+            execve(interpreterPath.c_str(), argv, envp);
+            freeCharArray(envp, envVars.size());
+            exit(1);
+        }
         char *argv[2];
         argv[0] = const_cast<char *>(scriptPath.c_str());
         argv[1] = NULL;
@@ -222,6 +232,11 @@ std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std
         close(stdoutPipe[1]);
         std::string cgiOutput = readCgiResponse(inputData, stdinPipe[1], stdoutPipe[0]);
         
+        struct epoll_event event;
+        event.events = EPOLLIN;
+        event.data.fd = stdoutPipe[0];
+        epoll_ctl(epollFd, EPOLL_CTL_ADD, stdoutPipe[0], &event);
+
         int status;
         waitpid(pid, &status, 0);
         if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
@@ -230,7 +245,8 @@ std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std
         return cgiOutput;
     }
 }
-void CgiHandle::buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, HttpResponse &res, HttpRequest &request, sockaddr_in &clientAddr) {
+void CgiHandle::buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, HttpResponse &res, HttpRequest &request,
+    sockaddr_in &clientAddr, int epollFd) {
     std::map<std::string, std::string> envVars;
     std::string serverName = ctx.server.getMatchingServerName(res.getHostHeader());
     u_int16_t serverPort = ctx.server.getServerPort(serverName);
@@ -238,7 +254,7 @@ void CgiHandle::buildCgiScript(const std::string &scriptPath, const RequestConte
     buildCgiEnvironment(request, ctx, scriptPath, serverPort, clientIP, serverName, envVars);
     try
     {
-        std::string cgiOutput = executeCgiScript(scriptPath, envVars, request.getBody());
+        std::string cgiOutput = executeCgiScript(scriptPath, envVars, request.getBody(), ctx.location->getCgiPassMap(), epollFd);
         sendCgiOutputToClient(cgiOutput, res);
     }
     catch(const std::exception& e)

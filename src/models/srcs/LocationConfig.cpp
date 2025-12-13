@@ -55,6 +55,11 @@ const std::string& LocationConfig::getUploadDir() const {
     return _uploadDir;
 }
 
+std::map<std::string, std::string> LocationConfig::getCgiPassMap() const
+{
+    return _cgiPassMap;
+}
+
 void LocationConfig::addMethod(const std::string &method)
 {
     // Check if method already exists to avoid duplicates

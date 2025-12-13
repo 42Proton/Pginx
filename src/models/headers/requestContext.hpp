@@ -20,6 +20,7 @@ class RequestContext {
     bool getAutoIndex() const;
     const std::string *getErrorPage(const u_int16_t code) const;
     
+    
     // Method validation
     bool isMethodAllowed(const std::string &method) const;
     

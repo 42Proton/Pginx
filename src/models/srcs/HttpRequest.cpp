@@ -196,13 +196,13 @@ GetHeadRequest::GetHeadRequest(const RequestContext &ctx) : HttpRequest(ctx)
 
 GetHeadRequest::~GetHeadRequest() {}
 
-void GetHeadRequest::handle(HttpResponse &res, sockaddr_in &clientAddr)
+void GetHeadRequest::handle(HttpResponse &res, sockaddr_in &clientAddr, int epollFd)
 {
     bool includeBody = (method == "GET");
-    handleGetOrHead(res, includeBody, clientAddr);
+    handleGetOrHead(res, includeBody, clientAddr, epollFd);
 }
 
-void HttpRequest::handleGetOrHead(HttpResponse &res, bool includeBody, sockaddr_in &clientAddr)
+void HttpRequest::handleGetOrHead(HttpResponse &res, bool includeBody, sockaddr_in &clientAddr, int epollFd)
 {
     if (!_ctx.isMethodAllowed(method))
     {
@@ -226,7 +226,7 @@ void HttpRequest::handleGetOrHead(HttpResponse &res, bool includeBody, sockaddr_
             res.setErrorFromContext(403, _ctx);
             return;
         }
-        cgiHandler.buildCgiScript(scriptPath, _ctx, res, *this, clientAddr);
+        cgiHandler.buildCgiScript(scriptPath, _ctx, res, *this, clientAddr, epollFd);
         return;
     }
     std::string fullPath = _ctx.getFullPath(path);
@@ -317,7 +317,7 @@ bool PostRequest::isPathSafe(const std::string &path) const
     return true;
 }
 
-void PostRequest::handle(HttpResponse &res, sockaddr_in &clientAddr)
+void PostRequest::handle(HttpResponse &res, sockaddr_in &clientAddr, int epollFd)
 {
     if (!_ctx.isMethodAllowed("POST"))
     {
@@ -342,7 +342,7 @@ void PostRequest::handle(HttpResponse &res, sockaddr_in &clientAddr)
             return;
         }
         // Execute the CGI script
-        cgiHandler.buildCgiScript(scriptPath, _ctx, res, *this, clientAddr);
+        cgiHandler.buildCgiScript(scriptPath, _ctx, res, *this, clientAddr, epollFd);
         return;
     }
     std::string uploadDir;
@@ -443,8 +443,9 @@ bool DeleteRequest::isPathSafe(const std::string &fullPath) const
     return true;
 }
 
-void DeleteRequest::handle(HttpResponse &res, sockaddr_in &clientAddr)
+void DeleteRequest::handle(HttpResponse &res, sockaddr_in &clientAddr, int epollFd)
 {
+    (void)epollFd; // Unused parameter
     (void)clientAddr; // Unused parameter
     if (!_ctx.isMethodAllowed("DELETE"))
     {

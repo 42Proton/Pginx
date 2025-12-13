@@ -40,6 +40,7 @@ class LocationConfig : public BaseBlock {
   bool isCgiEnabled() const;
   void setTransferEncoding(bool enabled);
   void setCgiPassMapping(const std::string& extension, const std::string& interpreterPath);
+  std::map<std::string, std::string> getCgiPassMap() const;
 
   // Getters
   const std::string& getPath() const;
