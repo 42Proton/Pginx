@@ -210,7 +210,16 @@ void HttpRequest::handleGetOrHead(HttpResponse &res, bool includeBody, sockaddr_
         return;
     }
 
-    if (_ctx.location && _ctx.location->isCgiEnabled())
+    std::string fullPath = _ctx.getFullPath(path);
+    struct stat fileStat;
+
+    if (stat(fullPath.c_str(), &fileStat) != 0)
+    {
+        res.setErrorFromContext(404, _ctx);
+        return;
+    }
+
+    if (_ctx.location && _ctx.location->isCgiEnabled() && !S_ISDIR(fileStat.st_mode))
     {
         // Handle CGI requests
         CgiHandle cgiHandler;
@@ -227,14 +236,6 @@ void HttpRequest::handleGetOrHead(HttpResponse &res, bool includeBody, sockaddr_
             return;
         }
         cgiHandler.buildCgiScript(scriptPath, _ctx, res, *this, clientAddr, epollFd);
-        return;
-    }
-    std::string fullPath = _ctx.getFullPath(path);
-    struct stat fileStat;
-
-    if (stat(fullPath.c_str(), &fileStat) != 0)
-    {
-        res.setErrorFromContext(404, _ctx);
         return;
     }
 
@@ -259,9 +260,15 @@ void HttpRequest::handleGetOrHead(HttpResponse &res, bool includeBody, sockaddr_
 
         if (!found)
         {
+            std::cerr << "is enabled autoindex: " << _ctx.getAutoIndex() << "\n";
             if (_ctx.getAutoIndex())
             {
-                // TODO: implement directory listing (autoindex)
+                std::string page = generateAutoIndexPage(fullPath, path);
+                if (includeBody)
+                    res.setBody(page);
+                std::ostringstream lenStream;
+                lenStream << page.size();
+                res.setHeader("Content-Length", lenStream.str());
                 res.setStatus(200, "OK");
                 res.setHeader("Content-Type", "text/html");
                 return;

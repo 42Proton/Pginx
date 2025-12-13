@@ -2,6 +2,12 @@
 #include <algorithm>
 #include <cctype>
 #include <fcntl.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <vector>
+#include <iostream>
+#include <sstream>
+#include <iomanip>
 
 std::string ltrim(const std::string& s) {
     size_t start = 0;
@@ -114,4 +120,156 @@ std::string extractFileName(const std::string &path) {
     if (pos == std::string::npos)
         return path;
     return path.substr(pos + 1);
+}
+
+
+std::string formatFileSize(off_t size) {
+    const char* suffixes[] = {"B", "KB", "MB", "GB", "TB"};
+    size_t suffixIndex = 0;
+    double displaySize = static_cast<double>(size);
+    while (displaySize >= 1024 && suffixIndex < 4) {
+        displaySize /= 1024;
+        ++suffixIndex;
+    }
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(2) << displaySize << " " << suffixes[suffixIndex];
+    return oss.str();
+}
+
+std::string formatModTime(time_t modTime) {
+    char buffer[64];
+    struct tm* timeinfo = localtime(&modTime);
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", timeinfo);
+    return std::string(buffer);
+}
+
+std::string generateAutoIndexPage(const std::string &dirPath, const std::string &requestPath) {
+    DIR *dir = opendir(dirPath.c_str());
+    if (!dir) {
+        return "<html><body><h1>Error reading directory</h1></body></html>";
+    }
+
+    std::ostringstream html;
+    html << "<!DOCTYPE html>\n"
+         << "<html>\n"
+         << "<head>\n"
+         << "<title>Index of " << requestPath << "</title>\n"
+         << "<style>\n"
+         << "body { font-family: monospace; margin: 20px; }\n"
+         << "h1 { border-bottom: 1px solid #ccc; }\n"
+         << "table { border-collapse: collapse; width: 100%; }\n"
+         << "th { text-align: left; padding: 8px; border-bottom: 2px solid #ddd; }\n"
+         << "td { padding: 8px; border-bottom: 1px solid #eee; }\n"
+         << "a { text-decoration: none; color: #0066cc; }\n"
+         << "a:hover { text-decoration: underline; }\n"
+         << "</style>\n"
+         << "</head>\n"
+         << "<body>\n"
+         << "<h1>Index of " << requestPath << "</h1>\n"
+         << "<table>\n"
+         << "<tr><th>Name</th><th>Size</th><th>Date Modified</th></tr>\n";
+
+    // Add parent directory link if not root
+    if (requestPath != "/") {
+        html << "<tr><td><a href=\"../\">../</a></td><td>-</td><td>-</td></tr>\n";
+    }
+
+    struct dirent *entry;
+    std::vector<std::pair<std::string, struct stat> > entries;
+
+    // Read all entries
+    while ((entry = readdir(dir)) != NULL) {
+        std::string name = entry->d_name;
+        
+        // Skip hidden files and current/parent directory entries
+        if (name[0] == '.') {
+            continue;
+        }
+
+        std::string fullPath = dirPath;
+        if (fullPath.empty() || fullPath[fullPath.size() - 1] != '/') {
+            fullPath += '/';
+        }
+        fullPath += name;
+
+        struct stat fileStat;
+        if (stat(fullPath.c_str(), &fileStat) == 0) {
+            entries.push_back(std::make_pair(name, fileStat));
+        }
+    }
+    closedir(dir);
+
+    // Sort entries: directories first, then files, alphabetically
+    std::sort(entries.begin(), entries.end(), compareEntries);
+
+    // Generate table rows
+    for (size_t i = 0; i < entries.size(); ++i) {
+        const std::string &name = entries[i].first;
+        const struct stat &fileStat = entries[i].second;
+
+        bool isDir = S_ISDIR(fileStat.st_mode);
+        std::string displayName = name;
+        if (isDir) {
+            displayName += "/";
+        }
+
+        // Create link
+        std::string linkPath = requestPath;
+        if (linkPath.empty() || linkPath[linkPath.size() - 1] != '/') {
+            linkPath += '/';
+        }
+        linkPath += name;
+        if (isDir) {
+            linkPath += "/";
+        }
+
+        // Format size
+        std::string sizeStr;
+        if (isDir) {
+            sizeStr = "-";
+        } else {
+            sizeStr = formatFileSize(fileStat.st_size);
+        }
+
+        // Format date
+        char dateStr[64];
+        struct tm *timeInfo = localtime(&fileStat.st_mtime);
+        strftime(dateStr, sizeof(dateStr), "%d-%b-%Y %H:%M", timeInfo);
+
+        html << "<tr>"
+             << "<td><a href=\"" << linkPath << "\">" << displayName << "</a></td>"
+             << "<td>" << sizeStr << "</td>"
+             << "<td>" << dateStr << "</td>"
+             << "</tr>\n";
+    }
+
+    html << "</table>\n"
+         << "</body>\n"
+         << "</html>\n";
+
+    return html.str();
+}
+
+// Helper function to compare directory entries
+bool compareEntries(const std::pair<std::string, struct stat> &a,
+                   const std::pair<std::string, struct stat> &b) {
+    bool aIsDir = S_ISDIR(a.second.st_mode);
+    bool bIsDir = S_ISDIR(b.second.st_mode);
+    
+    // Directories come before files
+    if (aIsDir != bIsDir) {
+        return aIsDir;
+    }
+    
+    // Alphabetical order (case-insensitive)
+    std::string aLower = a.first;
+    std::string bLower = b.first;
+    for (size_t i = 0; i < aLower.length(); ++i) {
+        aLower[i] = std::tolower(aLower[i]);
+    }
+    for (size_t i = 0; i < bLower.length(); ++i) {
+        bLower[i] = std::tolower(bLower[i]);
+    }
+    
+    return aLower < bLower;
 }
