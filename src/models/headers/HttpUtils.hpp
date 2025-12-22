@@ -45,6 +45,5 @@ bool compareEntries(const std::pair<std::string, struct stat> &a,
                    const std::pair<std::string, struct stat> &b);
 
 std::string formatFileSize(off_t size);
-std::string formatModTime(time_t modTime);
 
 #endif

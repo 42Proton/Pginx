@@ -283,7 +283,7 @@ if (_ctx.getAutoIndex())
 
 ---
 
-## HTTP Cookie Handling
+## HTTP Cookie Handling (CGI-Only Approach)
 
 ### Overview
 
@@ -291,6 +291,8 @@ Cookies are small pieces of data stored by the browser and sent with every reque
 - **Session management**: User logins, shopping carts
 - **Personalization**: User preferences, themes
 - **Tracking**: Analytics, advertising (optional)
+
+**Design Decision:** Our web server will handle cookies **exclusively through CGI scripts**. The server acts as a transparent proxy, passing cookie data to CGI scripts and relaying CGI responses back to the client without any server-side cookie processing.
 
 ### HTTP Cookie Mechanism
 
@@ -301,17 +303,31 @@ Host: example.com
 Cookie: session_id=abc123; user_pref=dark_mode
 ```
 
-**Server → Client (Response)**:
+**Server → CGI (Environment Variable)**:
+```bash
+HTTP_COOKIE="session_id=abc123; user_pref=dark_mode"
+```
+
+**CGI → Server (Response)**:
 ```http
-HTTP/1.1 200 OK
+Content-Type: text/html
 Set-Cookie: session_id=xyz789; Path=/; HttpOnly; Secure
 Set-Cookie: user_pref=light_mode; Max-Age=31536000; Path=/
-Content-Type: text/html
 
 <html>...</html>
 ```
 
-### Cookie Attributes
+**Server → Client (Response)**:
+```http
+HTTP/1.1 200 OK
+Content-Type: text/html
+Set-Cookie: session_id=xyz789; Path=/; HttpOnly; Secure
+Set-Cookie: user_pref=light_mode; Max-Age=31536000; Path=/
+
+<html>...</html>
+```
+
+### Cookie Attributes (CGI Responsibility)
 
 | Attribute | Purpose | Example |
 |-----------|---------|---------|
@@ -324,321 +340,373 @@ Content-Type: text/html
 | **HttpOnly** | Not accessible via JavaScript | `HttpOnly` |
 | **SameSite** | CSRF protection | `SameSite=Strict` or `Lax` or `None` |
 
+**Note:** CGI scripts are responsible for formatting cookies with proper attributes. The server simply passes them through.
+
 ### Requirements
 
 Our web server needs to:
 
-1. **Parse incoming Cookie headers** from client requests
-2. **Store cookies** in a data structure accessible to request handlers
-3. **Allow CGI scripts** to read cookies via environment variables
-4. **Support Set-Cookie** in responses (both static and CGI)
-5. **Validate cookie format** according to RFC 6265
+1. **Pass incoming `Cookie:` headers** to CGI scripts via the `HTTP_COOKIE` environment variable
+2. **Relay `Set-Cookie:` headers** from CGI output to the client response
+3. **Preserve multiple `Set-Cookie` headers** (CGI can set multiple cookies)
+4. **No server-side cookie parsing or storage** - CGI scripts handle all cookie logic
 
-### Implementation Details
+### Implementation Details (CGI-Only)
 
-#### Step 1: Add Cookie Data Structure
-
-**File:** `src/models/headers/HttpRequest.hpp`
-
-Add a cookie storage member:
-```cpp
-class HttpRequest {
-private:
-    // ... existing members ...
-    std::map<std::string, std::string> _cookies;  // Cookie name → value
-
-public:
-    // ... existing methods ...
-    
-    // Cookie accessors
-    const std::map<std::string, std::string>& getCookies() const;
-    std::string getCookie(const std::string& name) const;
-    bool hasCookie(const std::string& name) const;
-};
-```
-
-**File:** `src/models/srcs/HttpRequest.cpp`
-
-Implement accessors:
-```cpp
-const std::map<std::string, std::string>& HttpRequest::getCookies() const {
-    return _cookies;
-}
-
-std::string HttpRequest::getCookie(const std::string& name) const {
-    std::map<std::string, std::string>::const_iterator it = _cookies.find(name);
-    if (it != _cookies.end())
-        return it->second;
-    return "";
-}
-
-bool HttpRequest::hasCookie(const std::string& name) const {
-    return _cookies.find(name) != _cookies.end();
-}
-```
-
-#### Step 2: Parse Cookie Header
-
-**File:** `src/models/headers/HttpUtils.hpp`
-
-Add cookie parsing function:
-```cpp
-// Cookie utilities
-std::map<std::string, std::string> parseCookieHeader(const std::string& cookieHeader);
-std::string formatSetCookie(const std::string& name, const std::string& value,
-                           const std::string& path = "/",
-                           int maxAge = -1,
-                           bool httpOnly = false,
-                           bool secure = false);
-```
-
-**File:** `src/models/srcs/HttpUtils.cpp`
-
-Implement cookie parsing:
-```cpp
-std::map<std::string, std::string> parseCookieHeader(const std::string& cookieHeader) {
-    std::map<std::string, std::string> cookies;
-    
-    // Format: "name1=value1; name2=value2; name3=value3"
-    std::string::size_type pos = 0;
-    
-    while (pos < cookieHeader.length()) {
-        // Skip whitespace
-        while (pos < cookieHeader.length() && (cookieHeader[pos] == ' ' || cookieHeader[pos] == '\t'))
-            pos++;
-        
-        // Find next '=' for name
-        std::string::size_type eqPos = cookieHeader.find('=', pos);
-        if (eqPos == std::string::npos)
-            break;
-        
-        std::string name = cookieHeader.substr(pos, eqPos - pos);
-        name = trim(name);
-        
-        // Find end of value (semicolon or end of string)
-        pos = eqPos + 1;
-        std::string::size_type semicolonPos = cookieHeader.find(';', pos);
-        
-        std::string value;
-        if (semicolonPos == std::string::npos) {
-            value = cookieHeader.substr(pos);
-            pos = cookieHeader.length();
-        } else {
-            value = cookieHeader.substr(pos, semicolonPos - pos);
-            pos = semicolonPos + 1;
-        }
-        
-        value = trim(value);
-        
-        if (!name.empty())
-            cookies[name] = value;
-    }
-    
-    return cookies;
-}
-
-std::string formatSetCookie(const std::string& name, const std::string& value,
-                           const std::string& path,
-                           int maxAge,
-                           bool httpOnly,
-                           bool secure) {
-    std::string setCookie = name + "=" + value;
-    
-    if (!path.empty())
-        setCookie += "; Path=" + path;
-    
-    if (maxAge >= 0) {
-        std::ostringstream oss;
-        oss << maxAge;
-        setCookie += "; Max-Age=" + oss.str();
-    }
-    
-    if (httpOnly)
-        setCookie += "; HttpOnly";
-    
-    if (secure)
-        setCookie += "; Secure";
-    
-    // Add SameSite for CSRF protection
-    setCookie += "; SameSite=Lax";
-    
-    return setCookie;
-}
-```
-
-#### Step 3: Integrate Cookie Parsing into HttpParser
-
-**File:** `src/models/srcs/HttpParser.cpp`
-
-After parsing headers, extract cookies:
-```cpp
-// In parseRequest() after headers are parsed:
-
-// Parse Cookie header if present
-std::map<std::string, std::string>::const_iterator cookieIt = headers.find("cookie");
-if (cookieIt != headers.end()) {
-    std::map<std::string, std::string> cookies = parseCookieHeader(cookieIt->second);
-    request->setCookies(cookies);  // Need to add this setter
-}
-```
-
-**File:** `src/models/headers/HttpRequest.hpp`
-
-Add setter:
-```cpp
-void setCookies(const std::map<std::string, std::string>& cookies);
-```
-
-**File:** `src/models/srcs/HttpRequest.cpp`
-
-```cpp
-void HttpRequest::setCookies(const std::map<std::string, std::string>& cookies) {
-    _cookies = cookies;
-}
-```
-
-#### Step 4: Pass Cookies to CGI Scripts
+#### Step 1: Pass `Cookie:` Header to CGI as `HTTP_COOKIE`
 
 **File:** `src/models/srcs/CgiHandle.cpp`
 
-In `buildCgiEnvironment()`, add cookies:
+In `buildCgiEnvironment()`, add the `HTTP_COOKIE` environment variable:
+
 ```cpp
-void CgiHandle::buildCgiEnvironment(...) {
-    // ... existing environment variables ...
+void CgiHandle::buildCgiEnvironment(const HttpRequest& request, 
+                                     const RequestContext& ctx,
+                                     const std::string& scriptPath,
+                                     sockaddr_in& clientAddr) {
+    // ... existing environment variables (REQUEST_METHOD, QUERY_STRING, etc.) ...
     
-    // Add HTTP_COOKIE environment variable
-    const std::map<std::string, std::string>& cookies = request.getCookies();
-    if (!cookies.empty()) {
-        std::string cookieStr;
-        for (std::map<std::string, std::string>::const_iterator it = cookies.begin();
-             it != cookies.end(); ++it) {
-            if (!cookieStr.empty())
-                cookieStr += "; ";
-            cookieStr += it->first + "=" + it->second;
-        }
-        envVars["HTTP_COOKIE"] = cookieStr;
+    // Pass Cookie header to CGI if present
+    std::string cookieHeader = request.getHeader("cookie");
+    if (!cookieHeader.empty()) {
+        envVars["HTTP_COOKIE"] = cookieHeader;
     }
     
-    // ... rest of function ...
+    // ... rest of environment setup ...
 }
 ```
 
-#### Step 5: Support Set-Cookie in Responses
+**Note:** The server passes the raw `Cookie:` header value as-is. The CGI script is responsible for parsing it.
+
+#### Step 2: Relay `Set-Cookie:` Headers from CGI Output
+
+**File:** `src/models/srcs/CgiHandle.cpp`
+
+Update `parseCgiOutput()` or `sendCgiOutputToClient()` to preserve `Set-Cookie` headers:
+
+```cpp
+void CgiHandle::parseCgiOutput(const std::string& cgiOutput, 
+                               HttpResponse& res) {
+    // Find header/body separator
+    size_t headerEnd = cgiOutput.find("\r\n\r\n");
+    if (headerEnd == std::string::npos)
+        headerEnd = cgiOutput.find("\n\n");
+    
+    if (headerEnd == std::string::npos) {
+        // No headers, treat as pure body
+        res.setBody(cgiOutput);
+        res.setHeader("Content-Type", "text/html");
+        return;
+    }
+    
+    // Split headers and body
+    std::string headersStr = cgiOutput.substr(0, headerEnd);
+    std::string body = cgiOutput.substr(headerEnd + 
+                        (cgiOutput[headerEnd + 2] == '\r' ? 4 : 2));
+    
+    // Parse CGI headers line by line
+    std::istringstream headerStream(headersStr);
+    std::string line;
+    
+    while (std::getline(headerStream, line)) {
+        // Remove trailing \r if present
+        if (!line.empty() && line[line.length() - 1] == '\r')
+            line = line.substr(0, line.length() - 1);
+        
+        if (line.empty())
+            continue;
+        
+        // Parse "Header-Name: value"
+        size_t colonPos = line.find(':');
+        if (colonPos == std::string::npos)
+            continue;
+        
+        std::string headerName = trim(line.substr(0, colonPos));
+        std::string headerValue = trim(line.substr(colonPos + 1));
+        
+        // Pass through all headers from CGI, including Set-Cookie
+        // No special handling needed - HttpResponse already supports multiple Set-Cookie
+        res.setHeader(headerName, headerValue);
+    }
+    
+    res.setBody(body);
+}
+```
+
+**Important:** If your `HttpResponse::setHeader()` uses a `std::map` for headers, it will overwrite duplicate headers. You need to handle `Set-Cookie` specially since HTTP allows multiple `Set-Cookie` headers.
+
+#### Step 3: Support Multiple `Set-Cookie` Headers in HttpResponse
+
+**Option A: Store Set-Cookie separately**
 
 **File:** `src/models/headers/HttpResponse.hpp`
 
-Add convenience method:
 ```cpp
-void setCookie(const std::string& name, const std::string& value,
-               const std::string& path = "/",
-               int maxAge = -1,
-               bool httpOnly = false,
-               bool secure = false);
+class HttpResponse {
+private:
+    std::map<std::string, std::string> _headers;
+    std::vector<std::string> _setCookies;  // Store Set-Cookie separately
+    // ... other members ...
+
+public:
+    void setHeader(const std::string& name, const std::string& value);
+    void addSetCookie(const std::string& cookieValue);  // For multiple Set-Cookie
+    // ... other methods ...
+};
 ```
 
 **File:** `src/models/srcs/HttpResponse.cpp`
 
 ```cpp
-void HttpResponse::setCookie(const std::string& name, const std::string& value,
-                            const std::string& path,
-                            int maxAge,
-                            bool httpOnly,
-                            bool secure) {
-    std::string cookieValue = formatSetCookie(name, value, path, maxAge, httpOnly, secure);
+void HttpResponse::setHeader(const std::string& name, const std::string& value) {
+    std::string lowerName = toLowerStr(name);
     
-    // Note: Set-Cookie can appear multiple times, one per cookie
-    // We need to handle this specially since headers map uses unique keys
+    // Handle Set-Cookie specially
+    if (lowerName == "set-cookie") {
+        _setCookies.push_back(value);
+        return;
+    }
     
-    // Option 1: Store as array internally
-    // Option 2: Append to existing with \r\n delimiter
-    // Option 3: Store in separate cookies vector
+    _headers[name] = value;
+}
+
+void HttpResponse::addSetCookie(const std::string& cookieValue) {
+    _setCookies.push_back(cookieValue);
+}
+
+std::string HttpResponse::serialize() const {
+    std::string response = _version + " " + itoa_int(_statusCode) + " " + _statusMessage + "\r\n";
     
-    // For simplicity, we'll append multiple Set-Cookie headers during serialization
-    setHeader("Set-Cookie", cookieValue);
+    // Serialize regular headers
+    for (std::map<std::string, std::string>::const_iterator it = _headers.begin();
+         it != _headers.end(); ++it) {
+        response += it->first + ": " + it->second + "\r\n";
+    }
+    
+    // Serialize Set-Cookie headers (can have multiple)
+    for (size_t i = 0; i < _setCookies.size(); ++i) {
+        response += "Set-Cookie: " + _setCookies[i] + "\r\n";
+    }
+    
+    response += "\r\n";
+    response += _body;
+    
+    return response;
 }
 ```
 
-**Note**: HTTP allows multiple `Set-Cookie` headers. The current header storage (`std::map`) might need adjustment to support this. Options:
+**Option B: Use multimap for all headers**
 
-1. **Store cookies separately**: Add `std::vector<std::string> _cookies` in HttpResponse
-2. **Change headers to multimap**: `std::multimap<std::string, std::string> _headers`
-3. **Join with special delimiter**: Store multiple Set-Cookie values and split during serialization
-
-**Recommended**: Add separate cookie storage:
+If you want to support multiple headers of any type (not just Set-Cookie):
 
 ```cpp
-// In HttpResponse.hpp
+class HttpResponse {
 private:
-    std::vector<std::string> _setCookies;  // Multiple Set-Cookie headers
-
-public:
-    void addSetCookie(const std::string& setCookieValue);
-    const std::vector<std::string>& getSetCookies() const;
+    std::multimap<std::string, std::string> _headers;  // Changed from map
+    // ...
+};
 ```
 
-Then in `serialize()`:
-```cpp
-// After headers
-for (size_t i = 0; i < _setCookies.size(); i++) {
-    response += "Set-Cookie: " + _setCookies[i] + "\r\n";
-}
-```
+This is more flexible but requires changing all header access code.
 
-#### Step 6: CGI Set-Cookie Support
+**Recommendation:** Use Option A (separate `_setCookies` vector) for simplicity and backwards compatibility.
 
-CGI scripts can already set cookies via stdout:
-```python
-#!/usr/bin/env python3
-print("Content-Type: text/html")
-print("Set-Cookie: session_id=abc123; Path=/; HttpOnly")
-print("")  # Blank line separates headers from body
-print("<html><body>Cookie set!</body></html>")
-```
-
-The CGI handler needs to parse these headers properly.
+#### Step 4: Update CgiHandle to Use addSetCookie
 
 **File:** `src/models/srcs/CgiHandle.cpp`
 
-Update `sendCgiOutputToClient()` to handle Set-Cookie:
 ```cpp
-void CgiHandle::sendCgiOutputToClient(const std::string &cgiOutput, HttpResponse &res) {
-    size_t headerEnd = cgiOutput.find("\r\n\r\n");
-    if (headerEnd == std::string::npos)
-        headerEnd = cgiOutput.find("\n\n");
+void CgiHandle::parseCgiOutput(const std::string& cgiOutput, 
+                               HttpResponse& res) {
+    // ... header parsing ...
     
-    if (headerEnd != std::string::npos) {
-        std::string headers = cgiOutput.substr(0, headerEnd);
-        std::string body = cgiOutput.substr(headerEnd + 4);  // Skip \r\n\r\n or \n\n
+    while (std::getline(headerStream, line)) {
+        // ... parse line ...
         
-        // Parse CGI headers
-        std::istringstream headerStream(headers);
-        std::string line;
+        std::string headerName = trim(line.substr(0, colonPos));
+        std::string headerValue = trim(line.substr(colonPos + 1));
         
-        while (std::getline(headerStream, line)) {
-            if (line.empty() || line == "\r")
-                break;
-            
-            size_t colonPos = line.find(':');
-            if (colonPos != std::string::npos) {
-                std::string headerName = trim(line.substr(0, colonPos));
-                std::string headerValue = trim(line.substr(colonPos + 1));
-                
-                // Handle Set-Cookie specially (can have multiple)
-                if (toLowerStr(headerName) == "set-cookie") {
-                    res.addSetCookie(headerValue);
-                } else {
-                    res.setHeader(headerName, headerValue);
-                }
-            }
+        // Use addSetCookie for Set-Cookie headers
+        if (toLowerStr(headerName) == "set-cookie") {
+            res.addSetCookie(headerValue);
+        } else {
+            res.setHeader(headerName, headerValue);
         }
-        
-        res.setBody(body);
-    } else {
-        // No headers, just body
-        res.setBody(cgiOutput);
     }
+    
+    // ...
 }
 ```
+
+### CGI Cookie Examples
+
+#### Example 1: CGI Script Sets a Cookie
+
+**File:** `www/cgi-bin/set_cookie.py`
+
+```python
+#!/usr/bin/env python3
+
+print("Content-Type: text/html")
+print("Set-Cookie: session_id=abc123; Path=/; HttpOnly; Max-Age=3600")
+print("")  # Blank line separates headers from body
+
+print("<html><body>")
+print("<h1>Cookie Set!</h1>")
+print("<p>A session cookie has been set.</p>")
+print("<p><a href='/cgi-bin/read_cookie.py'>Read Cookie</a></p>")
+print("</body></html>")
+```
+
+**Flow:**
+1. Client requests `/cgi-bin/set_cookie.py`
+2. CGI outputs `Set-Cookie: ...` header
+3. `CgiHandle::parseCgiOutput()` extracts the header
+4. `HttpResponse::addSetCookie()` stores it
+5. `HttpResponse::serialize()` includes it in response
+6. Browser receives and stores the cookie
+
+#### Example 2: CGI Script Reads a Cookie
+
+**File:** `www/cgi-bin/read_cookie.py`
+
+```python
+#!/usr/bin/env python3
+import os
+
+print("Content-Type: text/html")
+print("")
+
+print("<html><body>")
+print("<h1>Cookies Received</h1>")
+
+# Read HTTP_COOKIE environment variable
+http_cookie = os.environ.get('HTTP_COOKIE', '')
+
+if http_cookie:
+    print(f"<p>Raw cookie string: <code>{http_cookie}</code></p>")
+    
+    # Parse cookies (format: "name1=value1; name2=value2")
+    print("<h2>Parsed Cookies:</h2><ul>")
+    for cookie in http_cookie.split(';'):
+        cookie = cookie.strip()
+        if '=' in cookie:
+            name, value = cookie.split('=', 1)
+            print(f"<li><b>{name}</b> = {value}</li>")
+    print("</ul>")
+else:
+    print("<p>No cookies received.</p>")
+
+print("<p><a href='/cgi-bin/set_cookie.py'>Set Cookie</a></p>")
+print("</body></html>")
+```
+
+**Flow:**
+1. Browser sends request with `Cookie: session_id=abc123`
+2. `CgiHandle::buildCgiEnvironment()` sets `HTTP_COOKIE=session_id=abc123`
+3. CGI script reads `os.environ['HTTP_COOKIE']`
+4. CGI script parses and displays cookie data
+5. Response is sent back to client
+
+#### Example 3: Session Management
+
+**File:** `www/cgi-bin/session.py`
+
+```python
+#!/usr/bin/env python3
+import os
+import cgi
+import uuid
+
+def parse_cookies(cookie_str):
+    """Parse cookie string into dictionary"""
+    cookies = {}
+    if cookie_str:
+        for cookie in cookie_str.split(';'):
+            cookie = cookie.strip()
+            if '=' in cookie:
+                name, value = cookie.split('=', 1)
+                cookies[name] = value
+    return cookies
+
+# Parse query parameters
+form = cgi.FieldStorage()
+action = form.getvalue('action', 'index')
+
+# Parse cookies
+http_cookie = os.environ.get('HTTP_COOKIE', '')
+cookies = parse_cookies(http_cookie)
+
+print("Content-Type: text/html")
+
+if action == 'login':
+    # Generate new session ID
+    session_id = str(uuid.uuid4())
+    print(f"Set-Cookie: session_id={session_id}; Path=/; HttpOnly; Max-Age=3600")
+    print("")
+    print("<html><body>")
+    print("<h1>Login Successful</h1>")
+    print(f"<p>Session ID: {session_id}</p>")
+    print("<p><a href='/cgi-bin/session.py?action=profile'>View Profile</a></p>")
+    print("</body></html>")
+
+elif action == 'logout':
+    # Delete session cookie by setting Max-Age=0
+    print("Set-Cookie: session_id=; Path=/; Max-Age=0")
+    print("")
+    print("<html><body>")
+    print("<h1>Logged Out</h1>")
+    print("<p><a href='/cgi-bin/session.py'>Home</a></p>")
+    print("</body></html>")
+
+elif action == 'profile':
+    print("")
+    print("<html><body>")
+    if 'session_id' in cookies:
+        print("<h1>Profile Page</h1>")
+        print(f"<p>Logged in with session: {cookies['session_id']}</p>")
+        print("<p><a href='/cgi-bin/session.py?action=logout'>Logout</a></p>")
+    else:
+        print("<h1>Not Logged In</h1>")
+        print("<p><a href='/cgi-bin/session.py?action=login'>Login</a></p>")
+    print("</body></html>")
+
+else:
+    # Index page
+    print("")
+    print("<html><body>")
+    print("<h1>Session Management Demo</h1>")
+    if 'session_id' in cookies:
+        print(f"<p>Current session: {cookies['session_id']}</p>")
+        print("<p><a href='/cgi-bin/session.py?action=profile'>Profile</a> | ")
+        print("<a href='/cgi-bin/session.py?action=logout'>Logout</a></p>")
+    else:
+        print("<p>Not logged in</p>")
+        print("<p><a href='/cgi-bin/session.py?action=login'>Login</a></p>")
+    print("</body></html>")
+```
+
+### Why CGI-Only is Simpler
+
+**Advantages:**
+1. **✅ Separation of Concerns**: Server handles HTTP transport, CGI handles application logic
+2. **✅ No server-side state**: Server doesn't need to track sessions or cookies
+3. **✅ CGI standard compliance**: `HTTP_COOKIE` is part of CGI/1.1 spec (RFC 3875)
+4. **✅ Flexibility**: CGI scripts can use any cookie library or custom parsing
+5. **✅ Less code**: No need for server-side cookie parsing, storage, or validation
+6. **✅ Security**: Cookie validation and sanitization is CGI's responsibility
+
+**What the server does:**
+- ✅ Pass `Cookie:` header to CGI as `HTTP_COOKIE` environment variable
+- ✅ Relay `Set-Cookie:` headers from CGI output to client
+- ✅ Support multiple `Set-Cookie` headers
+
+**What the server does NOT do:**
+- ❌ Parse cookie values
+- ❌ Store cookies server-side
+- ❌ Validate cookie syntax
+- ❌ Manage cookie expiration
+- ❌ Handle cookie security attributes
 
 ### Cookie Security Best Practices
 
@@ -746,33 +814,32 @@ void handleProfile(HttpRequest& req, HttpResponse& res) {
    - Special characters in filenames
    - Time: ~2 hours
 
-### Phase 2: Cookie Handling (Estimated: 6-8 hours)
+### Phase 2: Cookie Handling (CGI-Only) (Estimated: 3-4 hours)
 
-1. ⏳ **Add cookie data structures**
-   - Update `HttpRequest` with cookie storage
-   - Add cookie accessors
+1. ⏳ **Pass Cookie header to CGI**
+   - Update `CgiHandle::buildCgiEnvironment()` to set `HTTP_COOKIE` env var
+   - Extract `Cookie:` header from request
+   - Time: ~30 minutes
+   
+2. ⏳ **Support multiple Set-Cookie in HttpResponse**
+   - Add `_setCookies` vector to `HttpResponse`
+   - Implement `addSetCookie()` method
+   - Update `serialize()` to output multiple Set-Cookie headers
    - Time: ~1 hour
-2. ⏳ **Implement cookie parsing**
-   - Add `parseCookieHeader()` to HttpUtils
-   - Add `formatSetCookie()` helper
-   - Integrate into HttpParser
-   - Time: ~2 hours
-3. ⏳ **Update HttpResponse**
-   - Add `Set-Cookie` support
-   - Handle multiple cookies
-   - Implement `setCookie()` method
+   
+3. ⏳ **Parse CGI Set-Cookie headers**
+   - Update `CgiHandle::parseCgiOutput()` to extract Set-Cookie
+   - Use `HttpResponse::addSetCookie()` for each Set-Cookie header
+   - Preserve all cookie attributes
+   - Time: ~1 hour
+   
+4. ⏳ **Testing**
+   - Create CGI test scripts (set_cookie.py, read_cookie.py, session.py)
+   - Test single and multiple cookies
+   - Test cookie attributes (HttpOnly, Secure, Max-Age, Path)
+   - Test session management flow
+   - Browser testing with DevTools
    - Time: ~1.5 hours
-4. ⏳ **CGI Integration**
-   - Pass cookies to CGI via `HTTP_COOKIE` env var
-   - Parse `Set-Cookie` from CGI output
-   - Time: ~1.5 hours
-5. ⏳ **Testing**
-   - Cookie parsing from requests
-   - Multiple cookies
-   - Cookie attributes (HttpOnly, Secure, etc.)
-   - CGI cookie exchange
-   - Browser testing
-   - Time: ~2 hours
 
 ### Phase 3: Integration & Polish (Estimated: 2-3 hours)
 
@@ -788,7 +855,7 @@ void handleProfile(HttpRequest& req, HttpResponse& res) {
    - Session management example
    - Cookie security validation
 
-**Total Estimated Time:** 12-17 hours
+**Total Estimated Time:** 7-10 hours (reduced from 12-17 hours with CGI-only approach)
 
 ---
 
@@ -799,28 +866,26 @@ void handleProfile(HttpRequest& req, HttpResponse& res) {
 ```
 src/models/
 ├── headers/
-│   ├── HttpUtils.hpp          # ✏️ Add directory & cookie utility declarations
-│   ├── HttpRequest.hpp        # ✏️ Add cookie storage and accessors
-│   └── HttpResponse.hpp       # ✏️ Add setCookie method and Set-Cookie storage
+│   ├── HttpUtils.hpp          # ✏️ Add directory utility declarations
+│   └── HttpResponse.hpp       # ✏️ Add addSetCookie() and _setCookies vector
 ├── srcs/
-│   ├── HttpUtils.cpp          # ✏️ Implement directory listing & cookie utilities
-│   ├── HttpRequest.cpp        # ✏️ Replace TODO, add cookie accessors
-│   ├── HttpParser.cpp         # ✏️ Parse Cookie header
-│   ├── HttpResponse.cpp       # ✏️ Implement setCookie and serialize Set-Cookie
+│   ├── HttpUtils.cpp          # ✏️ Implement directory listing utilities
+│   ├── HttpRequest.cpp        # ✏️ Replace TODO with directory listing
+│   ├── HttpResponse.cpp       # ✏️ Implement addSetCookie() and update serialize()
 │   └── CgiHandle.cpp          # ✏️ Pass HTTP_COOKIE env var, parse Set-Cookie from CGI
 
 docs/
-└── AUTOINDEX_AND_CACHE_PLAN.md  # ✅ This file (updated for cookies)
+└── AUTOINDEX_AND_COOKIES_PLAN.md  # ✅ This file (updated for CGI-only cookies)
 
 Tests/
 ├── autoindex_tests.sh         # 📝 New test script
-└── cookie_tests.sh            # 📝 New test script
+└── cookie_tests.sh            # 📝 New test script (CGI-focused)
 
 www/
 └── cgi-bin/
-    ├── test_cookie_set.py     # 📝 New CGI test - sets cookies
-    ├── test_cookie_read.py    # 📝 New CGI test - reads cookies
-    └── test_session.py        # 📝 New CGI test - session management
+    ├── set_cookie.py          # 📝 New CGI test - sets cookies
+    ├── read_cookie.py         # 📝 New CGI test - reads cookies
+    └── session.py             # 📝 New CGI test - session management
 ```
 
 ---
@@ -869,180 +934,181 @@ done
 curl -i http://localhost:8080/large_dir/
 ```
 
-### Cookie Testing
+### Cookie Testing (CGI-Only)
 
 Create test script: `Tests/cookie_tests.sh`
 
 ```bash
 #!/bin/bash
 
-echo "=== Cookie Tests ==="
+echo "=== CGI Cookie Tests ==="
 
-# Test 1: Set cookie via Set-Cookie header
-echo "Test 1: Server sets cookie"
-curl -i http://localhost:8080/cgi-bin/test_cookie_set.py
+# Test 1: CGI sets a cookie
+echo "Test 1: CGI sets cookie"
+curl -i http://localhost:8080/cgi-bin/set_cookie.py
 
-# Test 2: Send cookie in request
-echo "Test 2: Send cookie to server"
-curl -i -H "Cookie: session_id=abc123" http://localhost:8080/cgi-bin/test_cookie_read.py
+# Test 2: Send cookie to CGI
+echo "Test 2: Send cookie to CGI"
+curl -i -H "Cookie: session_id=abc123" http://localhost:8080/cgi-bin/read_cookie.py
 
 # Test 3: Multiple cookies
 echo "Test 3: Multiple cookies"
 curl -i -H "Cookie: session_id=abc123; user_pref=dark_mode; lang=en" \
-    http://localhost:8080/cgi-bin/test_cookie_read.py
+    http://localhost:8080/cgi-bin/read_cookie.py
 
-# Test 4: Cookie with attributes
-echo "Test 4: Cookie with HttpOnly, Secure, Path"
-curl -i http://localhost:8080/cgi-bin/test_cookie_set.py?secure=true
-
-# Test 5: Session management
-echo "Test 5: Session management"
-# First request - get session cookie
-COOKIE=$(curl -si http://localhost:8080/cgi-bin/test_session.py?action=login | \
+# Test 4: Session flow
+echo "Test 4: Session management"
+# Login
+COOKIE=$(curl -si http://localhost:8080/cgi-bin/session.py?action=login | \
          grep -i "Set-Cookie:" | sed 's/Set-Cookie: //' | cut -d';' -f1)
 
 echo "Got cookie: $COOKIE"
 
-# Second request - use session cookie
-curl -i -H "Cookie: $COOKIE" http://localhost:8080/cgi-bin/test_session.py?action=profile
+# Access profile
+curl -i -H "Cookie: $COOKIE" http://localhost:8080/cgi-bin/session.py?action=profile
 
-# Third request - logout
-curl -i -H "Cookie: $COOKIE" http://localhost:8080/cgi-bin/test_session.py?action=logout
+# Logout
+curl -i -H "Cookie: $COOKIE" http://localhost:8080/cgi-bin/session.py?action=logout
 
-# Test 6: Cookie parsing edge cases
-echo "Test 6: Cookie parsing edge cases"
-curl -i -H "Cookie: a=1; b=2; c=3" http://localhost:8080/cgi-bin/test_cookie_read.py
-curl -i -H "Cookie: empty=; with_space= value ; trim=test" http://localhost:8080/cgi-bin/test_cookie_read.py
+# Test 5: Empty cookie header (no HTTP_COOKIE env var)
+echo "Test 5: No cookies"
+curl -i http://localhost:8080/cgi-bin/read_cookie.py
+
+# Test 6: CGI sets multiple cookies
+echo "Test 6: CGI sets multiple cookies"
+curl -i http://localhost:8080/cgi-bin/multi_cookie.py
 ```
 
 ### CGI Cookie Test Scripts
 
-**File:** `www/cgi-bin/test_cookie_set.py`
+**File:** `www/cgi-bin/set_cookie.py`
 
 ```python
 #!/usr/bin/env python3
-import os
-import cgi
 
 print("Content-Type: text/html")
-print("Set-Cookie: session_id=xyz789; Path=/; HttpOnly")
-print("Set-Cookie: user_pref=dark_mode; Max-Age=31536000; Path=/")
-print("")
+print("Set-Cookie: session_id=xyz789; Path=/; HttpOnly; Max-Age=3600")
+print("Set-Cookie: user_pref=dark_mode; Path=/; Max-Age=31536000")
+print("")  # Blank line separates headers from body
 
 print("<html><head><title>Cookie Set</title></head><body>")
 print("<h1>Cookies Set Successfully</h1>")
 print("<p>Two cookies have been set:</p>")
 print("<ul>")
-print("<li><b>session_id</b> = xyz789 (HttpOnly, session)</li>")
+print("<li><b>session_id</b> = xyz789 (HttpOnly, 1 hour)</li>")
 print("<li><b>user_pref</b> = dark_mode (1 year)</li>")
 print("</ul>")
-print("<p><a href='/cgi-bin/test_cookie_read.py'>Read cookies</a></p>")
+print("<p><a href='/cgi-bin/read_cookie.py'>Read cookies</a></p>")
 print("</body></html>")
 ```
 
-**File:** `www/cgi-bin/test_cookie_read.py`
+**File:** `www/cgi-bin/read_cookie.py`
 
 ```python
 #!/usr/bin/env python3
 import os
 
 print("Content-Type: text/html")
-print("")
+print("")  # Blank line
 
 print("<html><head><title>Cookie Read</title></head><body>")
-print("<h1>Cookies Received</h1>")
+print("<h1>Cookies Received from HTTP_COOKIE</h1>")
 
 http_cookie = os.environ.get('HTTP_COOKIE', '')
 
 if http_cookie:
-    print("<p>Raw Cookie header: <code>" + http_cookie + "</code></p>")
+    print(f"<p>Raw Cookie header: <code>{http_cookie}</code></p>")
     print("<h2>Parsed Cookies:</h2>")
     print("<table border='1' cellpadding='5'>")
     print("<tr><th>Name</th><th>Value</th></tr>")
     
-    cookies = [c.strip().split('=', 1) for c in http_cookie.split(';')]
-    for cookie in cookies:
-        if len(cookie) == 2:
-            name, value = cookie
+    for cookie in http_cookie.split(';'):
+        cookie = cookie.strip()
+        if '=' in cookie:
+            name, value = cookie.split('=', 1)
             print(f"<tr><td><b>{name}</b></td><td>{value}</td></tr>")
     
     print("</table>")
 else:
-    print("<p><i>No cookies received</i></p>")
+    print("<p><i>No cookies received (HTTP_COOKIE not set)</i></p>")
 
-print("<p><a href='/cgi-bin/test_cookie_set.py'>Set cookies</a></p>")
+print("<p><a href='/cgi-bin/set_cookie.py'>Set cookies</a></p>")
 print("</body></html>")
 ```
 
-**File:** `www/cgi-bin/test_session.py`
+**File:** `www/cgi-bin/session.py`
 
 ```python
 #!/usr/bin/env python3
 import os
 import cgi
-import random
-import string
+import uuid
 
-def generate_session_id():
-    return ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+def parse_cookies(cookie_str):
+    """Parse HTTP_COOKIE into dictionary"""
+    cookies = {}
+    if cookie_str:
+        for cookie in cookie_str.split(';'):
+            cookie = cookie.strip()
+            if '=' in cookie:
+                name, value = cookie.split('=', 1)
+                cookies[name] = value
+    return cookies
+
+# Parse query parameters
+form = cgi.FieldStorage()
+action = form.getvalue('action', 'index')
+
+# Parse cookies from HTTP_COOKIE environment variable
+http_cookie = os.environ.get('HTTP_COOKIE', '')
+cookies = parse_cookies(http_cookie)
 
 print("Content-Type: text/html")
 
-# Parse query string
-query = os.environ.get('QUERY_STRING', '')
-params = dict(p.split('=') for p in query.split('&') if '=' in p)
-action = params.get('action', 'index')
-
-# Get current session cookie
-http_cookie = os.environ.get('HTTP_COOKIE', '')
-session_id = None
-if http_cookie:
-    cookies = dict(c.strip().split('=', 1) for c in http_cookie.split(';') if '=' in c)
-    session_id = cookies.get('session_id')
-
 if action == 'login':
-    # Set new session
-    new_session = generate_session_id()
-    print(f"Set-Cookie: session_id={new_session}; Path=/; HttpOnly; Max-Age=3600")
+    # Generate new session ID
+    session_id = str(uuid.uuid4())
+    print(f"Set-Cookie: session_id={session_id}; Path=/; HttpOnly; Max-Age=3600")
     print("")
     print("<html><body>")
-    print(f"<h1>Login Successful</h1>")
-    print(f"<p>Session ID: {new_session}</p>")
-    print("<p><a href='/cgi-bin/test_session.py?action=profile'>View Profile</a></p>")
+    print("<h1>Login Successful</h1>")
+    print(f"<p>Session ID: {session_id}</p>")
+    print("<p><a href='/cgi-bin/session.py?action=profile'>View Profile</a></p>")
+    print("</body></html>")
+
+elif action == 'logout':
+    # Delete session cookie by setting Max-Age=0
+    print("Set-Cookie: session_id=; Path=/; Max-Age=0")
+    print("")
+    print("<html><body>")
+    print("<h1>Logged Out</h1>")
+    print("<p><a href='/cgi-bin/session.py'>Home</a></p>")
     print("</body></html>")
 
 elif action == 'profile':
     print("")
     print("<html><body>")
-    if session_id:
+    if 'session_id' in cookies:
         print("<h1>Profile Page</h1>")
-        print(f"<p>Logged in with session: {session_id}</p>")
-        print("<p><a href='/cgi-bin/test_session.py?action=logout'>Logout</a></p>")
+        print(f"<p>Logged in with session: {cookies['session_id']}</p>")
+        print("<p><a href='/cgi-bin/session.py?action=logout'>Logout</a></p>")
     else:
         print("<h1>Not Logged In</h1>")
-        print("<p><a href='/cgi-bin/test_session.py?action=login'>Login</a></p>")
-    print("</body></html>")
-
-elif action == 'logout':
-    # Delete session cookie
-    print("Set-Cookie: session_id=; Path=/; Max-Age=0")
-    print("")
-    print("<html><body>")
-    print("<h1>Logged Out</h1>")
-    print("<p><a href='/cgi-bin/test_session.py?action=login'>Login Again</a></p>")
+        print("<p><a href='/cgi-bin/session.py?action=login'>Login</a></p>")
     print("</body></html>")
 
 else:
+    # Index page
     print("")
     print("<html><body>")
-    print("<h1>Session Test</h1>")
-    if session_id:
-        print(f"<p>Current session: {session_id}</p>")
-        print("<p><a href='/cgi-bin/test_session.py?action=profile'>Profile</a> | ")
-        print("<a href='/cgi-bin/test_session.py?action=logout'>Logout</a></p>")
+    print("<h1>Session Management Demo</h1>")
+    if 'session_id' in cookies:
+        print(f"<p>Current session: {cookies['session_id']}</p>")
+        print("<p><a href='/cgi-bin/session.py?action=profile'>Profile</a> | ")
+        print("<a href='/cgi-bin/session.py?action=logout'>Logout</a></p>")
     else:
         print("<p>Not logged in</p>")
-        print("<p><a href='/cgi-bin/test_session.py?action=login'>Login</a></p>")
+        print("<p><a href='/cgi-bin/session.py?action=login'>Login</a></p>")
     print("</body></html>")
 ```
 
@@ -1071,7 +1137,7 @@ else:
 
 ## Additional Considerations
 
-### Security
+### Security (CGI-Only Approach)
 
 1. **Directory Traversal Prevention**:
    - Already handled by existing path validation
@@ -1082,12 +1148,17 @@ else:
    - Only enable when explicitly configured
    - Consider adding `.hidden` file support to hide sensitive files
 
-3. **Cookie Security**:
-   - **HttpOnly**: Prevents XSS attacks from stealing cookies
-   - **Secure**: Ensures cookies only sent over HTTPS (important for production)
-   - **SameSite**: Prevents CSRF attacks
-   - **Path/Domain**: Limit cookie scope to prevent leakage
-   - **Validation**: Sanitize cookie values to prevent injection attacks
+3. **Cookie Security (CGI Responsibility)**:
+   - **Server role**: Pass cookies transparently, no validation
+   - **CGI responsibility**: 
+     - Parse and validate cookie values
+     - Set proper cookie attributes (HttpOnly, Secure, SameSite)
+     - Sanitize cookie values to prevent injection
+     - Implement session validation and expiration
+   - **Advantages**:
+     - Security logic centralized in application code (CGI)
+     - Server remains simple and focused on HTTP transport
+     - Application developers have full control over cookie security
 
 ### Performance
 
@@ -1095,10 +1166,11 @@ else:
    - For very large directories (1000+ files), consider pagination
    - Cache generated HTML for frequently accessed directories
 
-2. **Cookie Handling**:
-   - Minimal overhead (just string parsing)
-   - Cookie storage is per-request (no server-side storage)
-   - Consider limiting total cookie size (4KB per domain is browser limit)
+2. **Cookie Handling (CGI-Only)**:
+   - **Minimal server overhead**: Just string passing (no parsing/validation)
+   - **No server-side storage**: Cookies are stateless from server's perspective
+   - **CGI does the work**: Parsing happens in CGI process, not main server
+   - **Advantage**: Server performance unaffected by cookie complexity
 
 ### Future Enhancements
 
@@ -1109,12 +1181,12 @@ else:
    - JSON format option for APIs
    - Thumbnail support for images
 
-2. **Cookies**:
-   - Session storage (server-side session management)
-   - Cookie encryption
-   - Cookie signing for tamper detection
-   - Cookie prefixes (`__Secure-`, `__Host-`)
-   - Configuration for default cookie attributes
+2. **Cookies (if needed beyond CGI)**:
+   - Server-side session storage (if required)
+   - Cookie signing for tamper detection (CGI can implement)
+   - Rate limiting based on session cookies
+   
+   **Note**: Most cookie features should remain in CGI scripts for flexibility
 
 ### RFC References
 
@@ -1122,14 +1194,16 @@ else:
    - No specific RFC (implementation-specific)
    - Follow common conventions (Apache, Nginx)
 
-2. **Cookies**:
-   - **RFC 6265**: HTTP State Management Mechanism (primary reference)
-   - **RFC 2109**: HTTP State Management Mechanism (obsolete, but historical)
-   - **RFC 2965**: HTTP State Management Mechanism (obsolete)
-   - Key sections:
+2. **Cookies (CGI)**:
+   - **RFC 3875**: The Common Gateway Interface (CGI) Version 1.1
+     - Section 4.1.18: `HTTP_COOKIE` environment variable
+   - **RFC 6265**: HTTP State Management Mechanism
      - Section 4.1: Set-Cookie syntax
      - Section 4.2: Cookie syntax
-     - Section 5.1.3: Cookie security
+     - CGI scripts should follow these RFCs when formatting Set-Cookie headers
+   
+   **Server responsibility**: Pass `Cookie:` header as `HTTP_COOKIE` and relay `Set-Cookie:` from CGI
+   **CGI responsibility**: Parse cookies, validate, and format Set-Cookie according to RFC 6265
 
 ---
 
@@ -1138,14 +1212,25 @@ else:
 This plan provides a clear roadmap for implementing both auto index and cookie handling. These features are essential for modern web applications:
 
 - **Auto Index**: Improves usability when browsing directories
-- **Cookies**: Enables session management, user preferences, and stateful interactions
+- **Cookies (CGI-Only)**: Enables session management, user preferences, and stateful interactions through CGI scripts
 
 **Recommended Order:**
 1. Start with **Auto Index** (simpler, standalone feature)
-2. Then implement **Cookie Handling** (more complex, requires careful testing)
+2. Then implement **Cookie Handling** (simpler CGI-only approach)
 
 **Priority**: 
 - **Auto Index**: Nice-to-have, improves UX
 - **Cookies**: Essential for CGI applications requiring state (login systems, shopping carts, etc.)
 
+**Design Philosophy:**
+- **Separation of Concerns**: Server handles HTTP transport, CGI handles application logic (including cookie management)
+- **Simplicity**: Server code remains simple by delegating cookie parsing/validation to CGI
+- **Flexibility**: CGI scripts have full control over cookie behavior
+- **Standards Compliance**: Follows RFC 3875 (CGI) for `HTTP_COOKIE` environment variable
+
 Both features integrate well with the existing CGI implementation and will make your web server more complete and production-ready.
+
+---
+
+**Last Updated:** December 22, 2025  
+**Status:** ✅ Planning Complete - Ready for Implementation (CGI-Only Cookie Approach)

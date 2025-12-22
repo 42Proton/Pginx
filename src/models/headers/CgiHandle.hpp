@@ -30,6 +30,8 @@ class CgiHandle{
     void buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, HttpResponse &res, HttpRequest &request, sockaddr_in &clientAddr, int epollFd);
     std::string executeCgiScript(const std::string &scriptPath, const std::map<std::string, std::string> &envVars, const std::string &inputData, const std::map<std::string, std::string> &cgiPassMap, int epollFd);
     void sendCgiOutputToClient(const std::string &cgiOutput, HttpResponse &res);
+    void parseCgiResponse(const std::string &cgiOutput, HttpResponse &res);
+
 
     class CgiExecutionException : public std::exception {
       public:

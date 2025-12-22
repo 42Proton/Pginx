@@ -136,13 +136,6 @@ std::string formatFileSize(off_t size) {
     return oss.str();
 }
 
-std::string formatModTime(time_t modTime) {
-    char buffer[64];
-    struct tm* timeinfo = localtime(&modTime);
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", timeinfo);
-    return std::string(buffer);
-}
-
 std::string generateAutoIndexPage(const std::string &dirPath, const std::string &requestPath) {
     DIR *dir = opendir(dirPath.c_str());
     if (!dir) {
@@ -177,11 +170,9 @@ std::string generateAutoIndexPage(const std::string &dirPath, const std::string 
     struct dirent *entry;
     std::vector<std::pair<std::string, struct stat> > entries;
 
-    // Read all entries
     while ((entry = readdir(dir)) != NULL) {
         std::string name = entry->d_name;
         
-        // Skip hidden files and current/parent directory entries
         if (name[0] == '.') {
             continue;
         }
@@ -199,10 +190,9 @@ std::string generateAutoIndexPage(const std::string &dirPath, const std::string 
     }
     closedir(dir);
 
-    // Sort entries: directories first, then files, alphabetically
     std::sort(entries.begin(), entries.end(), compareEntries);
 
-    // Generate table rows
+
     for (size_t i = 0; i < entries.size(); ++i) {
         const std::string &name = entries[i].first;
         const struct stat &fileStat = entries[i].second;
@@ -213,7 +203,6 @@ std::string generateAutoIndexPage(const std::string &dirPath, const std::string 
             displayName += "/";
         }
 
-        // Create link
         std::string linkPath = requestPath;
         if (linkPath.empty() || linkPath[linkPath.size() - 1] != '/') {
             linkPath += '/';
@@ -223,7 +212,6 @@ std::string generateAutoIndexPage(const std::string &dirPath, const std::string 
             linkPath += "/";
         }
 
-        // Format size
         std::string sizeStr;
         if (isDir) {
             sizeStr = "-";
@@ -256,12 +244,10 @@ bool compareEntries(const std::pair<std::string, struct stat> &a,
     bool aIsDir = S_ISDIR(a.second.st_mode);
     bool bIsDir = S_ISDIR(b.second.st_mode);
     
-    // Directories come before files
     if (aIsDir != bIsDir) {
         return aIsDir;
     }
     
-    // Alphabetical order (case-insensitive)
     std::string aLower = a.first;
     std::string bLower = b.first;
     for (size_t i = 0; i < aLower.length(); ++i) {

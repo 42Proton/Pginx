@@ -105,6 +105,10 @@ void CgiHandle::buildCgiEnvironment(
     if (it != headers.end())
         envVars["HTTP_HOST"] = it->second;
     
+    it = headers.find("cookie");
+    if (it != headers.end())
+        envVars["HTTP_COOKIE"] = it->second;
+    
     // 7. Server info (from context)
     envVars["SERVER_NAME"] = serverName;
     std::ostringstream portStream;
@@ -171,13 +175,37 @@ void CgiHandle::getInterpreterForScript(const std::map<std::string, std::string>
 //     }
 // }
 
+void CgiHandle::parseCgiResponse(const std::string &cgiOutput, HttpResponse &res) {
+    std::istringstream responseStream(cgiOutput);
+    std::string line;
+
+    std::getline(responseStream, line);
+    std::istringstream statusLineStream(line);
+    std::string httpVersion;
+    int statusCode;
+    std::string statusMessage;
+    statusLineStream >> httpVersion >> statusCode;
+    std::getline(statusLineStream, statusMessage);
+    res.setStatus(statusCode, statusMessage);
+
+    while (std::getline(responseStream, line) && !line.empty()) {
+        size_t colonPos = line.find(':');
+        if (colonPos != std::string::npos) {
+            std::string headerName = line.substr(0, colonPos);
+            std::string headerValue = line.substr(colonPos + 1);
+            res.setHeader(headerName, headerValue);
+        }
+    }
+
+    std::string body;
+    while (std::getline(responseStream, line)) {
+        body += line + "\n";
+    }
+    res.setBody(body);
+}
+
 void CgiHandle::sendCgiOutputToClient(const std::string &cgiOutput, HttpResponse &res) {
-    res.setStatus(200, "OK");
-    res.setBody(cgiOutput);
-    std::stringstream lengthStream;
-    lengthStream << cgiOutput.size();
-    res.setHeader("Content-Length", lengthStream.str());
-    res.setHeader("Content-Type", "text/html");
+    parseCgiResponse(cgiOutput, res);
     res.build();
 }
 
