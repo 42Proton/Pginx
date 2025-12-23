@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import cgi
 import uuid
@@ -26,11 +27,11 @@ print("Content-Type: text/html")
 if action == 'login':
     # Generate new session ID
     session_id = str(uuid.uuid4())
-    print(f"Set-Cookie: session_id={session_id}; Path=/; HttpOnly; Max-Age=3600")
+    print("Set-Cookie: session_id={}; Path=/; HttpOnly; Max-Age=3600".format(session_id))
     print("")
     print("<html><body>")
     print("<h1>Login Successful</h1>")
-    print(f"<p>Session ID: {session_id}</p>")
+    print("<p>Session ID: {}</p>".format(session_id))
     print("<p><a href='/cgi-bin/session.py?action=profile'>View Profile</a></p>")
     print("</body></html>")
 
@@ -48,7 +49,7 @@ elif action == 'profile':
     print("<html><body>")
     if 'session_id' in cookies:
         print("<h1>Profile Page</h1>")
-        print(f"<p>Logged in with session: {cookies['session_id']}</p>")
+        print("<p>Logged in with session: {}</p>".format(cookies['session_id']))
         print("<p><a href='/cgi-bin/session.py?action=logout'>Logout</a></p>")
     else:
         print("<h1>Not Logged In</h1>")
@@ -61,7 +62,7 @@ else:
     print("<html><body>")
     print("<h1>Session Management Demo</h1>")
     if 'session_id' in cookies:
-        print(f"<p>Current session: {cookies['session_id']}</p>")
+        print("<p>Current session: {}</p>".format(cookies['session_id']))
         print("<p><a href='/cgi-bin/session.py?action=profile'>Profile</a> | ")
         print("<a href='/cgi-bin/session.py?action=logout'>Logout</a></p>")
     else:

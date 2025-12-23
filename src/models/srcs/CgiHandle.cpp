@@ -135,13 +135,11 @@ void CgiHandle::buildCgiEnvironment(
 }
 
 std::string CgiHandle::readCgiResponse(const std::string &inputData, int stdinPipe, int stdoutPipe) {
-    // Write input data to stdin pipe
     if (!inputData.empty()) {
         write(stdinPipe, inputData.c_str(), inputData.length());
     }
     close(stdinPipe);
     
-    // Read output from stdout pipe
     std::string output;
     char buffer[4096];
     ssize_t bytesRead;
@@ -180,20 +178,72 @@ void CgiHandle::parseCgiResponse(const std::string &cgiOutput, HttpResponse &res
     std::string line;
 
     std::getline(responseStream, line);
-    std::istringstream statusLineStream(line);
-    std::string httpVersion;
-    int statusCode;
-    std::string statusMessage;
-    statusLineStream >> httpVersion >> statusCode;
-    std::getline(statusLineStream, statusMessage);
-    res.setStatus(statusCode, statusMessage);
+    
+    if (!line.empty() && line[line.length() - 1] == '\r')
+        line = line.substr(0, line.length() - 1);
+    
+    bool hasStatusLine = false;
+    if (line.find("HTTP/") == 0) {
+        hasStatusLine = true;
+        std::istringstream statusLineStream(line);
+        std::string httpVersion;
+        int statusCode;
+        std::string statusMessage;
+        statusLineStream >> httpVersion >> statusCode;
+        std::getline(statusLineStream, statusMessage);
+        res.setStatus(statusCode, statusMessage);
+    } else {
+        res.setStatus(200, "OK");
+        if (!line.empty()) {
+            size_t colonPos = line.find(':');
+            if (colonPos != std::string::npos) {
+                std::string headerName = line.substr(0, colonPos);
+                std::string headerValue = line.substr(colonPos + 1);
+                
+                size_t start = headerValue.find_first_not_of(" \t\r\n");
+                if (start != std::string::npos) {
+                    headerValue = headerValue.substr(start);
+                }
+                size_t end = headerValue.find_last_not_of(" \t\r\n");
+                if (end != std::string::npos) {
+                    headerValue = headerValue.substr(0, end + 1);
+                }
+                
+                if (headerName == "Set-Cookie") {
+                    res.addSetCookieHeader(headerValue);
+                } else {
+                    res.setHeader(headerName, headerValue);
+                }
+            }
+        }
+    }
 
-    while (std::getline(responseStream, line) && !line.empty()) {
+    while (std::getline(responseStream, line)) {
+        if (!line.empty() && line[line.length() - 1] == '\r')
+            line = line.substr(0, line.length() - 1);
+        
+        if (line.empty())
+            break;
+        
         size_t colonPos = line.find(':');
         if (colonPos != std::string::npos) {
             std::string headerName = line.substr(0, colonPos);
             std::string headerValue = line.substr(colonPos + 1);
-            res.setHeader(headerName, headerValue);
+
+            size_t start = headerValue.find_first_not_of(" \t\r\n");
+            if (start != std::string::npos) {
+                headerValue = headerValue.substr(start);
+            }
+            size_t end = headerValue.find_last_not_of(" \t\r\n");
+            if (end != std::string::npos) {
+                headerValue = headerValue.substr(0, end + 1);
+            }
+            
+            if (headerName == "Set-Cookie") {
+                res.addSetCookieHeader(headerValue);
+            } else {
+                res.setHeader(headerName, headerValue);
+            }
         }
     }
 

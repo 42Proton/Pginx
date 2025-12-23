@@ -26,6 +26,14 @@ void HttpResponse::setVersion(const std::string &v) {
     version = v;
 }
 
+void HttpResponse::addSetCookieHeader(const std::string& value) {
+    setCookieHeaders.push_back(value);
+}
+
+std::vector<std::string> HttpResponse::getSetCookieHeaders() const {
+    return setCookieHeaders;
+}
+
 std::string HttpResponse::build() const {
     std::ostringstream response;
 
@@ -36,6 +44,11 @@ std::string HttpResponse::build() const {
     std::map<std::string, std::string>::const_iterator it = headers.begin();
     for (; it != headers.end(); ++it) {
         response << it->first << ": " << it->second << "\r\n";
+    }
+
+    std::vector<std::string>::const_iterator scIt = setCookieHeaders.begin();
+    for (; scIt != setCookieHeaders.end(); ++scIt) {
+        response << "Set-Cookie: " << *scIt << "\r\n";
     }
 
     // Blank line separating headers and body

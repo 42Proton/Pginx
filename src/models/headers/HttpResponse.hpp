@@ -3,6 +3,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 
 // Forward declaration
 class HttpRequest;
@@ -12,6 +13,7 @@ class HttpResponse {
     private:
         int statusCode;
         std::map<std::string, std::string> headers;
+        std::vector<std::string> setCookieHeaders;
         std::string body;
         std::string version;
         std::string statusMessage;
@@ -25,8 +27,10 @@ class HttpResponse {
         void setHeader(const std::string& key, const std::string& value);
         void setBody(const std::string& b);
         void setVersion(const std::string &v);
+        void addSetCookieHeader(const std::string& value);
         std::string getHostHeader() const;
         HttpRequest* getRequest() const; // Assume this function exists to get the associated request
+        std::vector<std::string> getSetCookieHeaders() const;
 
 
         std::string build() const;
@@ -37,4 +41,4 @@ class HttpResponse {
         void setErrorFromContext(int code, const RequestContext &ctx);
 };
 
-#endif
+#endif // HTTPRESPONSE_HPP
