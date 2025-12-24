@@ -150,15 +150,9 @@ bool SocketManager::initSockets(const std::vector<ServerSocketInfo> &servers)
 
         listeningSockets.push_back(listen_fd);
         existingSockets[key] = listen_fd;
-
-        std::cout << "Server listening on " << key
-                  << " (fd=" << listen_fd << ")" << std::endl;
     }
     if (listeningSockets.empty())
-    {
-        std::cerr << "No sockets were successfully initialized." << std::endl;
         return false;
-    }
     return true;
 }
 
