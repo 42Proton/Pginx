@@ -134,19 +134,136 @@ void CgiHandle::buildCgiEnvironment(
     }
 }
 
-std::string CgiHandle::readCgiResponse(const std::string &inputData, int stdinPipe, int stdoutPipe) {
-    if (!inputData.empty()) {
-        write(stdinPipe, inputData.c_str(), inputData.length());
+std::string CgiHandle::readCgiResponse(const std::string &inputData, int stdinPipe, int stdoutPipe, int epollFd, pid_t childPid) {
+    int flags = fcntl(stdinPipe, F_GETFL, 0);
+    fcntl(stdinPipe, F_SETFL, flags | O_NONBLOCK);
+    flags = fcntl(stdoutPipe, F_GETFL, 0);
+    fcntl(stdoutPipe, F_SETFL, flags | O_NONBLOCK);
+    
+    struct epoll_event event;
+    
+    event.events = EPOLLIN | EPOLLET; 
+    event.data.fd = stdoutPipe;
+    if (epoll_ctl(epollFd, EPOLL_CTL_ADD, stdoutPipe, &event) == -1) {
+        close(stdinPipe);
+        close(stdoutPipe);
+        throw CgiExecutionException();
     }
-    close(stdinPipe);
+    
+    bool needToWrite = !inputData.empty();
+    size_t bytesWritten = 0;
+    if (needToWrite) {
+        event.events = EPOLLOUT | EPOLLET;
+        event.data.fd = stdinPipe;
+        if (epoll_ctl(epollFd, EPOLL_CTL_ADD, stdinPipe, &event) == -1) {
+            epoll_ctl(epollFd, EPOLL_CTL_DEL, stdoutPipe, NULL);
+            close(stdinPipe);
+            close(stdoutPipe);
+            throw CgiExecutionException();
+        }
+    } else {
+        close(stdinPipe);
+    }
     
     std::string output;
     char buffer[4096];
-    ssize_t bytesRead;
-    while ((bytesRead = read(stdoutPipe, buffer, sizeof(buffer))) > 0) {
-        output.append(buffer, bytesRead);
+    time_t startTime = time(NULL);
+    int timeout = 5; // 5 second timeout
+    bool stdoutClosed = false;
+    
+    struct epoll_event events[2];
+    
+    while (!stdoutClosed) {
+        // Check for timeout
+        if (time(NULL) - startTime > timeout) {
+            if (needToWrite) {
+                epoll_ctl(epollFd, EPOLL_CTL_DEL, stdinPipe, NULL);
+                close(stdinPipe);
+            }
+            epoll_ctl(epollFd, EPOLL_CTL_DEL, stdoutPipe, NULL);
+            close(stdoutPipe);
+            kill(childPid, SIGKILL);
+            waitpid(childPid, NULL, 0);
+            throw CgiTimeoutException();
+        }
+
+        int nfds = epoll_wait(epollFd, events, 2, 100);
+
+        if (nfds == -1) {
+            if (needToWrite) {
+                epoll_ctl(epollFd, EPOLL_CTL_DEL, stdinPipe, NULL);
+                close(stdinPipe);
+            }
+            epoll_ctl(epollFd, EPOLL_CTL_DEL, stdoutPipe, NULL);
+            close(stdoutPipe);
+            throw CgiExecutionException();
+        }
+        
+        for (int i = 0; i < nfds; i++) {
+            if (events[i].data.fd == stdinPipe && (events[i].events & EPOLLOUT)) {
+                ssize_t written = write(stdinPipe, inputData.c_str() + bytesWritten, 
+                                       inputData.length() - bytesWritten);
+                if (written > 0) {
+                    bytesWritten += written;
+                    if (bytesWritten >= inputData.length()) {
+                        epoll_ctl(epollFd, EPOLL_CTL_DEL, stdinPipe, NULL);
+                        close(stdinPipe);
+                        needToWrite = false;
+                    }
+                } else if (written == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                    epoll_ctl(epollFd, EPOLL_CTL_DEL, stdinPipe, NULL);
+                    close(stdinPipe);
+                    epoll_ctl(epollFd, EPOLL_CTL_DEL, stdoutPipe, NULL);
+                    close(stdoutPipe);
+                    throw CgiExecutionException();
+                }
+            }
+            
+            if (events[i].data.fd == stdoutPipe && (events[i].events & EPOLLIN)) {
+                while (true) {
+                    ssize_t bytesRead = read(stdoutPipe, buffer, sizeof(buffer));
+                    if (bytesRead > 0) {
+                        output.append(buffer, bytesRead);
+                    } else if (bytesRead == 0) {
+                        epoll_ctl(epollFd, EPOLL_CTL_DEL, stdoutPipe, NULL);
+                        close(stdoutPipe);
+                        stdoutClosed = true;
+                        break;
+                    } else if (bytesRead == -1) {
+                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                            break;
+                        } else {
+                            epoll_ctl(epollFd, EPOLL_CTL_DEL, stdoutPipe, NULL);
+                            close(stdoutPipe);
+                            if (needToWrite) {
+                                epoll_ctl(epollFd, EPOLL_CTL_DEL, stdinPipe, NULL);
+                                close(stdinPipe);
+                            }
+                            throw CgiExecutionException();
+                        }
+                    }
+                }
+            }
+            
+            if (events[i].events & (EPOLLERR | EPOLLHUP)) {
+                if (events[i].data.fd == stdoutPipe) {
+                    epoll_ctl(epollFd, EPOLL_CTL_DEL, stdoutPipe, NULL);
+                    close(stdoutPipe);
+                    stdoutClosed = true;
+                }
+                if (events[i].data.fd == stdinPipe && needToWrite) {
+                    epoll_ctl(epollFd, EPOLL_CTL_DEL, stdinPipe, NULL);
+                    close(stdinPipe);
+                    needToWrite = false;
+                }
+            }
+        }
     }
-    close(stdoutPipe);
+    
+    if (needToWrite) {
+        epoll_ctl(epollFd, EPOLL_CTL_DEL, stdinPipe, NULL);
+        close(stdinPipe);
+    }
     
     return output;
 }
@@ -164,7 +281,20 @@ void CgiHandle::getInterpreterForScript(const std::map<std::string, std::string>
     interpreterPath = "";
 }
 
+void CgiHandle::getDirectoryFromPath(const std::string &path, std::string &directoryPath) {
+    size_t pos = path.find_last_of('/');
+    if (pos != std::string::npos) {
+        directoryPath = path.substr(0, pos);
+    } else {
+        directoryPath = ".";
+    }
+}
+
 void CgiHandle::parseCgiResponse(const std::string &cgiOutput, HttpResponse &res) {
+    if (cgiOutput.empty()) {
+        throw CgiInvalidResponseException();
+    }
+    
     std::istringstream responseStream(cgiOutput);
     std::string line;
 
@@ -277,6 +407,16 @@ std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std
         close(stdoutPipe[0]);
         close(stdinPipe[0]);
         close(stdoutPipe[1]);
+        
+        if (epollFd != -1) {
+            close(epollFd);
+        }
+
+        std::string scriptDir;
+        getDirectoryFromPath(scriptPath, scriptDir);
+        if (chdir(scriptDir.c_str()) == -1) {
+            std::exit(1);
+        }
 
         char **envp = convertMapToCharArray(envVars);
         getInterpreterForScript(cgiPassMap, scriptPath, interpreterPath);
@@ -287,7 +427,7 @@ std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std
             argv[2] = NULL;
             execve(interpreterPath.c_str(), argv, envp);
             freeCharArray(envp, envVars.size());
-            exit(1);
+            std::exit(1);
         }
         char *argv[2];
         argv[0] = const_cast<char *>(scriptPath.c_str());
@@ -295,25 +435,26 @@ std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std
 
         execve(scriptPath.c_str(), argv, envp);
         freeCharArray(envp, envVars.size());
-        exit(1);
+        std::exit(1);
     } else {
         close(stdinPipe[0]);
         close(stdoutPipe[1]);
-        std::string cgiOutput = readCgiResponse(inputData, stdinPipe[1], stdoutPipe[0]);
         
-        struct epoll_event event;
-        event.events = EPOLLIN;
-        event.data.fd = stdoutPipe[0];
-        epoll_ctl(epollFd, EPOLL_CTL_ADD, stdoutPipe[0], &event);
-
+        std::string cgiOutput = readCgiResponse(inputData, stdinPipe[1], stdoutPipe[0], epollFd, pid);
+        
         int status;
-        waitpid(pid, &status, 0);
+        pid_t result = waitpid(pid, &status, 0);
+
+        if (result == -1) {
+            throw CgiExecutionException();
+        }
         if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
             throw CgiExecutionException();
         }
         return cgiOutput;
     }
 }
+
 void CgiHandle::buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, HttpResponse &res, HttpRequest &request,
     sockaddr_in &clientAddr, int epollFd) {
     std::map<std::string, std::string> envVars;
@@ -325,10 +466,21 @@ void CgiHandle::buildCgiScript(const std::string &scriptPath, const RequestConte
     {
         std::string cgiOutput = executeCgiScript(scriptPath, envVars, request.getBody(), ctx.location->getCgiPassMap(), epollFd);
         sendCgiOutputToClient(cgiOutput, res);
+    } 
+    catch (const CgiTimeoutException& e) {
+        std::cerr << "CGI Timeout: " << e.what() << '\n';
+        res.setErrorFromContext(504, ctx); // Gateway Timeout
     }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
+    catch (const CgiInvalidResponseException& e) {
+        std::cerr << "Invalid CGI Response: " << e.what() << '\n';
+        res.setErrorFromContext(502, ctx); // Bad Gateway
+    }
+    catch (const CgiExecutionException& e) {
+        std::cerr << "CGI Execution Error: " << e.what() << '\n';
+        res.setErrorFromContext(500, ctx); // Internal Server Error
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Unknown error: " << e.what() << '\n';
         res.setErrorFromContext(500, ctx);
     }
     
