@@ -25,7 +25,7 @@ class CgiHandle{
   public:
   CgiHandle();
     void buildCgiEnvironment(const HttpRequest& request,const RequestContext& ctx,const std::string& scriptPath, u_int16_t serverPort,const std::string& clientIP,const std::string &serverName,std::map<std::string, std::string>& envVars);
-    std::string readCgiResponse(const std::string &inputData, int stdinPipe, int stdoutPipe);
+    std::string readCgiResponse(const std::string &inputData, int stdinPipe, int stdoutPipe, int epollFd, pid_t childPid);
     void getInterpreterForScript(const std::map<std::string, std::string> &cgiPassMap, const std::string &scriptPath, std::string &interpreterPath);
     void getDirectoryFromPath(const std::string &path, std::string &directoryPath);
     void buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, HttpResponse &res, HttpRequest &request, sockaddr_in &clientAddr, int epollFd);

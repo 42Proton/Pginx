@@ -16,7 +16,7 @@ class Server;
 class HttpRequest
 {
 protected:
-    const RequestContext _ctx;  // Store by value, not reference!
+    const RequestContext _ctx;
     std::string method;
     std::string path;
     std::string version;
