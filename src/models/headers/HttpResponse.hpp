@@ -29,7 +29,6 @@ class HttpResponse {
         void setVersion(const std::string &v);
         void addSetCookieHeader(const std::string& value);
         std::string getHostHeader() const;
-        HttpRequest* getRequest() const; // Assume this function exists to get the associated request
         std::vector<std::string> getSetCookieHeaders() const;
 
 
@@ -37,8 +36,7 @@ class HttpResponse {
         
         // Error handling methods
         void setError(int code, const std::string& reason);
-        void setErrorWithCustomPage(int code, const std::string& reason, const std::string& customPageContent);
         void setErrorFromContext(int code, const RequestContext &ctx);
 };
 
-#endif // HTTPRESPONSE_HPP
+#endif

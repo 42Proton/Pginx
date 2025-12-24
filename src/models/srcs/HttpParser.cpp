@@ -12,8 +12,6 @@ HttpParser::~HttpParser() {}
 HttpRequest *HttpParser::parseRequest(const std::string &rawRequest, Server &server)
 {
     clearError();
-
-    // Find request line (first line)
     size_t lineEnd = rawRequest.find("\r\n");
     if (lineEnd == std::string::npos)
     {
@@ -22,26 +20,19 @@ HttpRequest *HttpParser::parseRequest(const std::string &rawRequest, Server &ser
     }
 
     std::string requestLine = rawRequest.substr(0, lineEnd);
-
-    // Parse method, path, version
     std::string method, path, version;
     if (!parseRequestLine(requestLine, method, path, version))
     {
         return NULL;
     }
 
-    // Parse query string to get clean path for location matching
     std::string cleanPath;
     std::map<std::string, std::string> query;
     HttpRequest::parseQuery(path, cleanPath, query);
 
-    // Find matching location for this path
     const LocationConfig *location = server.findLocation(cleanPath);
-
-    // Create RequestContext with server and location
     RequestContext ctx(server, location);
 
-    // Create appropriate request object with RAII guard
     RequestGuard request(makeRequestByMethod(method, ctx));
     if (!request.isValid())
     {
@@ -54,7 +45,7 @@ HttpRequest *HttpParser::parseRequest(const std::string &rawRequest, Server &ser
     request->setVersion(version);
     request->setQuery(query);
     request->setEnabledCgi(location ? location->isCgiEnabled() : false);
-    // Parse headers
+ 
     size_t headerStart = lineEnd + 2;
     size_t headerEnd = rawRequest.find("\r\n\r\n");
     if (headerEnd == std::string::npos)
@@ -67,18 +58,17 @@ HttpRequest *HttpParser::parseRequest(const std::string &rawRequest, Server &ser
         std::string headerSection = rawRequest.substr(headerStart, headerEnd - headerStart);
         if (!parseHeaders(headerSection, request.get()))
         {
-            return NULL; // RequestGuard automatically deletes on scope exit
+            return NULL;
         }
     }
 
-    // Parse body if present
     if (headerEnd + 4 < rawRequest.length())
     {
         std::string body = rawRequest.substr(headerEnd + 4);
         parseBody(body, request.get());
     }
 
-    return request.release(); // Transfer ownership to caller
+    return request.release();
 }
 
 bool HttpParser::parseRequestLine(const std::string &line, std::string &method, std::string &path, std::string &version)
@@ -105,7 +95,6 @@ bool HttpParser::parseHeaders(const std::string &headerSection, HttpRequest *req
 
     while (std::getline(headerStream, line))
     {
-        // Remove carriage return if present
         if (!line.empty() && line[line.length() - 1] == '\r')
         {
             line.erase(line.length() - 1);
@@ -119,7 +108,6 @@ bool HttpParser::parseHeaders(const std::string &headerSection, HttpRequest *req
             std::string key = line.substr(0, colonPos);
             std::string value = line.substr(colonPos + 1);
 
-            // Trim leading whitespace from value
             while (!value.empty() && value[0] == ' ')
             {
                 value.erase(0, 1);
@@ -154,24 +142,18 @@ bool HttpParser::parseChunkedBody(const std::string &body, HttpRequest *request)
             sizeLine = sizeLine.substr(0, semicolon);
         }
 
-        // Parse hex chunk size using stringstream
         std::istringstream hexStream(sizeLine);
         unsigned long chunkSize;
         hexStream >> std::hex >> chunkSize;
-        
-        // Validate hex parsing
         if (hexStream.fail() || !hexStream.eof())
         {
             lastError = "Invalid chunk size: not a valid hex number";
             return false;
         }
-        
-        // Move past chunk size line and CRLF
         pos = lineEnd + 2;
         
         if (chunkSize == 0)
         {
-            // Last chunk (terminator) - skip any trailing headers
             while (pos < body.length())
             {
                 size_t trailerEnd = body.find("\r\n", pos);
@@ -179,30 +161,20 @@ bool HttpParser::parseChunkedBody(const std::string &body, HttpRequest *request)
                     break;
                 if (trailerEnd == pos)
                     break;
-                // Skip trailer line
                 pos = trailerEnd + 2;
             }
-            
-            // Set the complete un-chunked body (only the actual data, no chunk metadata)
             request->appendBody(unchunkedBody);
             
             return true;
         }
-
-        // Validate we have enough data for this chunk
         if (pos + chunkSize > body.length())
         {
             lastError = "Invalid chunk: data shorter than specified size";
             return false;
         }
-
-        // Extract chunk data and add to un-chunked body
         std::string chunkData = body.substr(pos, chunkSize);
         unchunkedBody.append(chunkData);
-        
         pos += chunkSize;
-
-        // Skip trailing CRLF after chunk data
         if (pos + 2 <= body.length() && 
             body[pos] == '\r' && body[pos + 1] == '\n')
         {
@@ -236,8 +208,8 @@ bool HttpParser::parseBody(const std::string &body, HttpRequest *request)
 
 bool HttpParser::isValidMethod(const std::string &method)
 {
-    return method == "GET" || method == "POST" || method == "PUT" ||
-           method == "DELETE" || method == "HEAD" || method == "OPTIONS";
+    return method == "GET" || method == "POST" ||
+           method == "DELETE" || method == "HEAD";
 }
 
 bool HttpParser::isValidPath(const std::string &path)
@@ -249,14 +221,6 @@ bool HttpParser::isValidVersion(const std::string &version)
 {
     return version == "HTTP/1.0" || version == "HTTP/1.1";
 }
-
-// bool HttpParser::hasError() const {
-//     return !lastError.empty();
-// }
-
-// std::string HttpParser::getLastError() const {
-//     return lastError;
-// }
 
 void HttpParser::clearError()
 {

@@ -3,7 +3,7 @@
 #include <parser.hpp>
 #include <string>
 #include <vector>
-#include "defaults.hpp"
+#include "utils.hpp"
 
 bool isLevel(const std::string& s) {
   return s == "server" || s == "http" || s == "location";
@@ -140,6 +140,4 @@ int isAllowedTokens(const std::vector<Token>& tokens) {
 
 void checks(const std::vector<Token>& tokens) {
   isAllowedTokens(tokens);
-  // later add: checkScopes(tokens);
-  // later add: checkSemicolons(tokens);
 }

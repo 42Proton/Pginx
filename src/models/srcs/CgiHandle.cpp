@@ -164,15 +164,6 @@ void CgiHandle::getInterpreterForScript(const std::map<std::string, std::string>
     interpreterPath = "";
 }
 
-// void CgiHandle::getDirectoryFromPath(const std::string &path, std::string &directoryPath) {
-//     size_t pos = path.find_last_of('/');
-//     if (pos != std::string::npos) {
-//         directoryPath = path.substr(0, pos);
-//     } else {
-//         directoryPath = ".";
-//     }
-// }
-
 void CgiHandle::parseCgiResponse(const std::string &cgiOutput, HttpResponse &res) {
     std::istringstream responseStream(cgiOutput);
     std::string line;

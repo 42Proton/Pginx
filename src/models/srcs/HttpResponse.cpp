@@ -53,10 +53,7 @@ std::string HttpResponse::build() const {
 
     // Blank line separating headers and body
     response << "\r\n";
-
-    // Body
     response << body;
-
     return response.str();
 }
 

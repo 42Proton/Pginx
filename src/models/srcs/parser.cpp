@@ -24,6 +24,10 @@ static size_t parseLocationDirective(const std::vector<Token>& tokens,
     } else if (locationDirective == "index" && i < tokens.size()) {
       std::vector<std::string> indexFiles;
       while (i < tokens.size() && tokens[i].value != ";") {
+        // Check if token is a valid index file (not another directive)
+        if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL) {
+          throw std::runtime_error("Expected ';' after 'index' directive");
+        }
         indexFiles.push_back(tokens[i].value);
         i++;
       }
@@ -75,6 +79,11 @@ static size_t parseLocationDirective(const std::vector<Token>& tokens,
     } else if (locationDirective == "allow_methods" && i < tokens.size()) {
       std::vector<std::string> methods;
       while (i < tokens.size() && tokens[i].value != ";") {
+        // Check if token is a valid method (not another directive)
+        if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL) {
+          throw std::runtime_error(
+              "Expected ';' after 'allow_methods' directive");
+        }
         methods.push_back(tokens[i].value);
         i++;
       }
@@ -279,6 +288,10 @@ static size_t parseIndexDirective(const std::vector<Token>& tokens,
                                   Server& server) {
   std::vector<std::string> indexFiles;
   while (i < tokens.size() && tokens[i].value != ";") {
+    // Check if token is a valid index file (not another directive)
+    if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL) {
+      throw std::runtime_error("Expected ';' after 'index' directive");
+    }
     indexFiles.push_back(tokens[i].value);
     i++;
   }
@@ -296,6 +309,11 @@ static size_t parseBasicServerDirective(const std::vector<Token>& tokens,
                                         const std::string& directive) {
   if (directive == "listen" && i < tokens.size()) {
     while (i < tokens.size() && tokens[i].value != ";") {
+      // Check if token is a valid listen value (not another directive)
+      if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL) {
+        throw std::runtime_error("Expected ';' after 'listen' directive");
+      }
+
       std::string listenValue = tokens[i].value;
       u_int16_t port = 80;
       std::string addr = "0.0.0.0";
@@ -322,6 +340,10 @@ static size_t parseBasicServerDirective(const std::vector<Token>& tokens,
     i++;
   } else if (directive == "server_name" && i < tokens.size()) {
     while (i < tokens.size() && tokens[i].value != ";") {
+      // Check if token is a valid server name (not another directive)
+      if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL) {
+        throw std::runtime_error("Expected ';' after 'server_name' directive");
+      }
       server.insertServerNames(tokens[i].value);
       i++;
     }

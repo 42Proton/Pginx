@@ -26,13 +26,7 @@ private:
 public:
     HttpParser();
     ~HttpParser();
-
-    // Main parsing method
     HttpRequest *parseRequest(const std::string &rawRequest, Server &server);
-
-    // Error handling
-    bool hasError() const;
-    std::string getLastError() const;
     void clearError();
 };
 
