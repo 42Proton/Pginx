@@ -6,6 +6,7 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <cstring>
 #include <ctime>
 #include <fstream>
 #include <iostream>
@@ -190,6 +191,7 @@ void HttpRequest::handleGetOrHead(HttpResponse& res, bool includeBody, sockaddr_
 
   std::string fullPath = _ctx.getFullPath(path);
   struct stat fileStat;
+  std::memset(&fileStat, 0, sizeof(fileStat));
 
   if (stat(fullPath.c_str(), &fileStat) != 0) {
     res.setErrorFromContext(404, _ctx);
@@ -206,6 +208,7 @@ void HttpRequest::handleGetOrHead(HttpResponse& res, bool includeBody, sockaddr_
       return;
     }
     struct stat scriptStat;
+    std::memset(&scriptStat, 0, sizeof(scriptStat));
     if (stat(scriptPath.c_str(), &scriptStat) != 0 ||
         !(scriptStat.st_mode & S_IXUSR)) {
       res.setErrorFromContext(403, _ctx);
@@ -307,6 +310,7 @@ void PostRequest::handle(HttpResponse& res, sockaddr_in& clientAddr, int epollFd
       return;
     }
     struct stat scriptStat;
+    std::memset(&scriptStat, 0, sizeof(scriptStat));  // Initialize to zero
     if (stat(scriptPath.c_str(), &scriptStat) != 0 ||
         !(scriptStat.st_mode & S_IXUSR)) {
       res.setErrorFromContext(403, _ctx);
@@ -414,6 +418,7 @@ void DeleteRequest::handle(HttpResponse& res, sockaddr_in& clientAddr, int epoll
   }
 
   struct stat fileStat;
+  std::memset(&fileStat, 0, sizeof(fileStat));  // Initialize to zero
   if (stat(fullPath.c_str(), &fileStat) != 0) {
     res.setErrorFromContext(404, _ctx);
     return;

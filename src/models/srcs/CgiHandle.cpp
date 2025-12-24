@@ -400,6 +400,7 @@ std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std
         throw CgiExecutionException();
     }
     else if (pid == 0) {
+        // First, redirect stdin/stdout to pipes
         dup2(stdinPipe[0], STDIN_FILENO);
         dup2(stdoutPipe[1], STDOUT_FILENO);
 
@@ -408,8 +409,9 @@ std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std
         close(stdinPipe[0]);
         close(stdoutPipe[1]);
         
-        if (epollFd != -1) {
-            close(epollFd);
+        // Start from 3 (after stdin=0, stdout=1, stderr=2) up to a reasonable limit
+        for (int fd = 3; fd < 1024; fd++) {
+            close(fd);
         }
 
         std::string scriptDir;
