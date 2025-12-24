@@ -164,16 +164,20 @@ void CgiHandle::getInterpreterForScript(const std::map<std::string, std::string>
     interpreterPath = "";
 }
 
-// void CgiHandle::getDirectoryFromPath(const std::string &path, std::string &directoryPath) {
-//     size_t pos = path.find_last_of('/');
-//     if (pos != std::string::npos) {
-//         directoryPath = path.substr(0, pos);
-//     } else {
-//         directoryPath = ".";
-//     }
-// }
+void CgiHandle::getDirectoryFromPath(const std::string &path, std::string &directoryPath) {
+    size_t pos = path.find_last_of('/');
+    if (pos != std::string::npos) {
+        directoryPath = path.substr(0, pos);
+    } else {
+        directoryPath = ".";
+    }
+}
 
 void CgiHandle::parseCgiResponse(const std::string &cgiOutput, HttpResponse &res) {
+    if (cgiOutput.empty()) {
+        throw CgiInvalidResponseException();
+    }
+    
     std::istringstream responseStream(cgiOutput);
     std::string line;
 
@@ -287,6 +291,12 @@ std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std
         close(stdinPipe[0]);
         close(stdoutPipe[1]);
 
+        std::string scriptDir;
+        getDirectoryFromPath(scriptPath, scriptDir);
+        if (chdir(scriptDir.c_str()) == -1) {
+            exit(1);
+        }
+
         char **envp = convertMapToCharArray(envVars);
         getInterpreterForScript(cgiPassMap, scriptPath, interpreterPath);
         if (!interpreterPath.empty()) {
@@ -315,14 +325,34 @@ std::string CgiHandle::executeCgiScript(const std::string &scriptPath, const std
         event.data.fd = stdoutPipe[0];
         epoll_ctl(epollFd, EPOLL_CTL_ADD, stdoutPipe[0], &event);
 
+
+        time_t startTime = time(NULL);
+        int timeout = 5;
         int status;
-        waitpid(pid, &status, 0);
+        pid_t result;
+
+        do {
+            result = waitpid(pid, &status, WNOHANG);
+            if (result == 0) {
+                if (time(NULL) - startTime > timeout) {
+                    kill(pid, SIGKILL); 
+                    waitpid(pid, &status, 0); 
+                    throw CgiTimeoutException();
+                }
+                usleep(100000);
+            }
+        } while (result == 0);
+
+        if (result == -1) {
+            throw CgiExecutionException();
+        }
         if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
             throw CgiExecutionException();
         }
         return cgiOutput;
     }
 }
+
 void CgiHandle::buildCgiScript(const std::string &scriptPath, const RequestContext &ctx, HttpResponse &res, HttpRequest &request,
     sockaddr_in &clientAddr, int epollFd) {
     std::map<std::string, std::string> envVars;
@@ -334,10 +364,21 @@ void CgiHandle::buildCgiScript(const std::string &scriptPath, const RequestConte
     {
         std::string cgiOutput = executeCgiScript(scriptPath, envVars, request.getBody(), ctx.location->getCgiPassMap(), epollFd);
         sendCgiOutputToClient(cgiOutput, res);
+    } 
+    catch (const CgiTimeoutException& e) {
+        std::cerr << "CGI Timeout: " << e.what() << '\n';
+        res.setErrorFromContext(504, ctx); // Gateway Timeout
     }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
+    catch (const CgiInvalidResponseException& e) {
+        std::cerr << "Invalid CGI Response: " << e.what() << '\n';
+        res.setErrorFromContext(502, ctx); // Bad Gateway
+    }
+    catch (const CgiExecutionException& e) {
+        std::cerr << "CGI Execution Error: " << e.what() << '\n';
+        res.setErrorFromContext(500, ctx); // Internal Server Error
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Unknown error: " << e.what() << '\n';
         res.setErrorFromContext(500, ctx);
     }
     
