@@ -72,6 +72,8 @@ static std::string getStatusMessage(int code) {
             return "Not Found";
         case 408:
             return "Request Timeout";
+        case 405:
+            return "Method Not Allowed";
         case 413:
             return "Payload Too Large";
         case 431:
