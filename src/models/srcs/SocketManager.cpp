@@ -352,7 +352,7 @@ void SocketManager::sendHttpError(int fd, const std::string &status, int epfd)
         std::cerr << "Error while loading error page: " << e.what() << std::endl;
 
         std::ostringstream fallback;
-        fallback << "<html><body><h1>Error 404</h1></body></html>";
+        fallback << "<html><body><h1>Error " << code << "</h1></body></html>";
         body = fallback.str();
     }
 
