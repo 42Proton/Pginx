@@ -38,6 +38,7 @@ private:
   std::map<int, std::string> requestBuffers;
   std::map<int, time_t> lastActivity;
   std::map<int, std::string> sendBuffers;
+  std::map<int, sockaddr_in> clientAddresses;
   static const int CLIENT_TIMEOUT = 60;
   std::vector<Server> serverList;
 
@@ -59,8 +60,8 @@ public:
   const std::vector<int> &getSockets() const;
 
   void handleClients();
-  void handleRequest(int readyServerFd, int epoll_fd, sockaddr_in &clientAddr);
-  void acceptNewClient(int readyServerFd, int epoll_fd, sockaddr_in &clientAddr, socklen_t &clientLen);
+  void handleRequest(int readyServerFd, int epoll_fd);
+  void acceptNewClient(int readyServerFd, int epoll_fd);
   void handleTimeouts(int epoll_fd);
   void sendBuffer(int fd, int epfd);
   bool isRequestTooLarge(int fd);

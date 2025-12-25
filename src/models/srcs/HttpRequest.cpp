@@ -38,6 +38,16 @@ HttpRequest& HttpRequest::operator=(const HttpRequest& other) {
 
 HttpRequest::~HttpRequest() {}
 
+bool HttpRequest::isCgiEnabledForRequest() const {
+  // Location-level setting overrides server-level setting
+  // If no location matches, use server-level setting
+  // Note: Locations inherit from server if not explicitly set during parsing
+  if (_ctx.location) {
+    return _ctx.location->isCgiEnabled();
+  }
+  return _ctx.server.isCgiEnabled();
+}
+
 const std::string& HttpRequest::getMethod() const {
   return method;
 }
@@ -198,8 +208,8 @@ void HttpRequest::handleGetOrHead(HttpResponse& res, bool includeBody, sockaddr_
     return;
   }
 
-  if (_ctx.location && _ctx.location->isCgiEnabled() &&
-      !S_ISDIR(fileStat.st_mode)) {
+  // Check if CGI is enabled (location overrides server setting) and file is not a directory
+  if (isCgiEnabledForRequest() && !S_ISDIR(fileStat.st_mode)) {
     // Handle CGI requests
     CgiHandle cgiHandler;
     std::string scriptPath = _ctx.getFullPath(path);
@@ -301,7 +311,8 @@ void PostRequest::handle(HttpResponse& res, sockaddr_in& clientAddr, int epollFd
     return;
   }
 
-  if (_ctx.location && _ctx.location->isCgiEnabled()) {
+  // Check if CGI is enabled (location overrides server setting)
+  if (isCgiEnabledForRequest()) {
     // Handle CGI requests
     CgiHandle cgiHandler;
     std::string scriptPath = _ctx.getFullPath(path);

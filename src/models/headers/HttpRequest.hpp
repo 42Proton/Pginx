@@ -26,6 +26,7 @@ protected:
     bool enabledCgi;
 
     void handleGetOrHead(HttpResponse &res, bool includeBody, sockaddr_in &clientAddr, int epollFd);
+    bool isCgiEnabledForRequest() const;
 
 private:
     // Prevent copying

@@ -3,13 +3,14 @@
 
 BaseBlock::BaseBlock()
     : _root(DEFAULT_ROOT_PATH), _returnData(404, ""), _clientMaxBodySize(1048576), _indexFiles(), _errorPages(),
-      _autoIndex(false)
+      _autoIndex(false), _cgiEnabled(false), _cgiExplicitlySet(false), _cgiPassMap()
 {
 }
 
 BaseBlock::BaseBlock(const BaseBlock &obj)
     : _root(obj._root), _returnData(obj._returnData), _clientMaxBodySize(obj._clientMaxBodySize),
-      _indexFiles(obj._indexFiles), _errorPages(obj._errorPages), _autoIndex(obj._autoIndex)
+      _indexFiles(obj._indexFiles), _errorPages(obj._errorPages), _autoIndex(obj._autoIndex), 
+      _cgiEnabled(obj._cgiEnabled), _cgiExplicitlySet(obj._cgiExplicitlySet), _cgiPassMap(obj._cgiPassMap)
 {
 }
 
@@ -68,6 +69,47 @@ void BaseBlock::setClientMaxBodySize(std::string &sSize)
         throw CommonExceptions::InvalidValue();
     }
 }
+
+void BaseBlock::setCgiEnabled(bool enabled) {
+  this->_cgiEnabled = enabled;
+  this->_cgiExplicitlySet = true;
+}
+
+bool BaseBlock::isCgiEnabled() const {
+  return this->_cgiEnabled;
+}
+
+bool BaseBlock::isCgiExplicitlySet() const {
+  return this->_cgiExplicitlySet;
+}
+
+void BaseBlock::inheritCgiFromParent(bool parentCgiEnabled) {
+  if (!this->_cgiExplicitlySet) {
+    this->_cgiEnabled = parentCgiEnabled;
+    // Don't set _cgiExplicitlySet to true - this is inheritance, not explicit
+  }
+}
+
+void BaseBlock::setCgiPassMapping(const std::string &extension, const std::string &interpreterPath) {
+    this->_cgiPassMap[extension] = interpreterPath;
+}
+
+std::map<std::string, std::string> BaseBlock::getCgiPassMap() const {
+    return this->_cgiPassMap;
+}
+
+void BaseBlock::inheritCgiPassFromParent(const std::map<std::string, std::string> &parentCgiPassMap) {
+    // Inherit parent mappings, but don't override existing location-specific mappings
+    for (std::map<std::string, std::string>::const_iterator it = parentCgiPassMap.begin(); 
+         it != parentCgiPassMap.end(); ++it) {
+        if (this->_cgiPassMap.find(it->first) == this->_cgiPassMap.end()) {
+            // Extension not defined in location, inherit from parent
+            this->_cgiPassMap[it->first] = it->second;
+        }
+        // If extension already exists in location, keep location's value (override)
+    }
+}
+
 
 void BaseBlock::insertIndex(const std::vector<std::string> &indexFiles) {
     _indexFiles.clear();

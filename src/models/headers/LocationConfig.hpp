@@ -19,9 +19,8 @@ class LocationConfig : public BaseBlock {
   MatchType _matchType;
   std::vector<std::string> _methods;
   std::string _uploadDir;
-  bool _cgi_enabled;
   bool _chunked_transfer_encoding;
-  std::map<std::string, std::string> _cgiPassMap;
+  // _cgiPassMap moved to BaseBlock for server-level inheritance
 
  public:
   LocationConfig();
@@ -36,11 +35,8 @@ class LocationConfig : public BaseBlock {
   void addMethod(const std::string& method);
   void setMethods(const std::vector<std::string>& methods);
   void setUploadDir(const std::string& dir);
-  void setCgiEnabled(bool enabled);
-  bool isCgiEnabled() const;
   void setTransferEncoding(bool enabled);
-  void setCgiPassMapping(const std::string& extension, const std::string& interpreterPath);
-  std::map<std::string, std::string> getCgiPassMap() const;
+  // setCgiPassMapping and getCgiPassMap inherited from BaseBlock
 
   // Getters
   const std::string& getPath() const;

@@ -12,6 +12,9 @@ class BaseBlock {
       std::vector<std::string> _indexFiles;
       std::map<u_int16_t, std::string> _errorPages;
       bool _autoIndex;
+      bool _cgiEnabled;
+      bool _cgiExplicitlySet;
+      std::map<std::string, std::string> _cgiPassMap;
       BaseBlock();
       BaseBlock(const BaseBlock &obj);
       virtual ~BaseBlock();
@@ -25,6 +28,13 @@ class BaseBlock {
       const std::string &getRoot() const;
       const std::pair<u_int16_t, std::string> &getReturnData() const;
       size_t getClientMaxBodySize() const;
+      bool isCgiEnabled() const;
+      void setCgiEnabled(bool enabled);
+      bool isCgiExplicitlySet() const;
+      void inheritCgiFromParent(bool parentCgiEnabled);
+      void setCgiPassMapping(const std::string &extension, const std::string &interpreterPath);
+      std::map<std::string, std::string> getCgiPassMap() const;
+      void inheritCgiPassFromParent(const std::map<std::string, std::string> &parentCgiPassMap);
       const std::vector<std::string> &getIndexFiles() const;
       const std::string *getErrorPage(const u_int16_t code) const;
       bool getAutoIndex() const;

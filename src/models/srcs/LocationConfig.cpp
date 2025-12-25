@@ -24,7 +24,7 @@ LocationConfig::LocationConfig(const std::string &path, MatchType matchType) : B
     _methods.push_back("DELETE");
 }
 
-LocationConfig::LocationConfig(const LocationConfig &obj) : BaseBlock(obj), _path(obj._path), _matchType(obj._matchType), _methods(obj._methods), _uploadDir(obj._uploadDir), _cgi_enabled(obj._cgi_enabled), _chunked_transfer_encoding(obj._chunked_transfer_encoding), _cgiPassMap(obj._cgiPassMap)
+LocationConfig::LocationConfig(const LocationConfig &obj) : BaseBlock(obj), _path(obj._path), _matchType(obj._matchType), _methods(obj._methods), _uploadDir(obj._uploadDir), _chunked_transfer_encoding(obj._chunked_transfer_encoding)
 {
 }
 
@@ -55,11 +55,6 @@ const std::string& LocationConfig::getUploadDir() const {
     return _uploadDir;
 }
 
-std::map<std::string, std::string> LocationConfig::getCgiPassMap() const
-{
-    return _cgiPassMap;
-}
-
 void LocationConfig::addMethod(const std::string &method)
 {
     // Check if method already exists to avoid duplicates
@@ -76,24 +71,9 @@ void LocationConfig::setTransferEncoding(bool enabled)
     this->_chunked_transfer_encoding = enabled;
 }
 
-void LocationConfig::setCgiEnabled(bool enabled)
-{
-    this->_cgi_enabled = enabled;
-}
-
-bool LocationConfig::isCgiEnabled() const
-{
-    return this->_cgi_enabled;
-}
-
 void LocationConfig::setMethods(const std::vector<std::string> &methods)
 {
     this->_methods = methods;
-}
-
-void LocationConfig::setCgiPassMapping(const std::string &extension, const std::string &interpreterPath)
-{
-    this->_cgiPassMap[extension] = interpreterPath;
 }
 
 const std::string &LocationConfig::getPath() const

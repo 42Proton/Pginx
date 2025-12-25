@@ -42,6 +42,8 @@ class Server : public BaseBlock {
     const std::string &getServerAddr(std::string server) const;
     void setIndexFiles(const std::vector<std::string> &indexFiles);
     const std::vector<std::string> &getIndexFiles() const;
+    void enableCgi(bool enabled);
+    bool isCgiEnabled() const;
 
     // Location management
     void addLocation(const LocationConfig &location);

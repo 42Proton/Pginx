@@ -162,3 +162,11 @@ const std::string& Server::getServerAddr(std::string server) const {
     static const std::string defaultAddr = "0.0.0.0";
     return defaultAddr;
 }
+
+void Server::enableCgi(bool enabled) {
+    setCgiEnabled(enabled);
+}
+
+bool Server::isCgiEnabled() const {
+    return BaseBlock::isCgiEnabled();
+}

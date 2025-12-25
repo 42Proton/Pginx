@@ -248,6 +248,10 @@ static size_t parseLocation(const std::vector<Token>& tokens,
                              "': missing '}'");
   }
 
+  location.inheritCgiFromParent(server.isCgiEnabled());
+  
+  location.inheritCgiPassFromParent(server.getCgiPassMap());
+
   server.addLocation(location);
   return i;
 }
@@ -376,6 +380,24 @@ static size_t parseBasicServerDirective(const std::vector<Token>& tokens,
       throw std::runtime_error("Expected ';' after 'autoindex' directive");
     }
     i++;
+  } else if (directive == "cgi_enabled" && i < tokens.size()) {
+    if (tokens[i].value == "on") {
+      server.setCgiEnabled(true);
+    }
+    i++;
+    if (i >= tokens.size() || tokens[i].value != ";") {
+      throw std::runtime_error("Expected ';' after 'cgi_enabled' directive");
+    }
+    i++;
+  } else if (directive == "cgi_pass" && i + 1 < tokens.size()) {
+    std::string extension = tokens[i].value;
+    std::string interpreter = tokens[i + 1].value;
+    i += 2;
+    if (i >= tokens.size() || tokens[i].value != ";") {
+      throw std::runtime_error("Expected ';' after 'cgi_pass' directive");
+    }
+    i++;
+    server.setCgiPassMapping(extension, interpreter);
   }
   return i;
 }
