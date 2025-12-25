@@ -134,6 +134,25 @@ static size_t parseLocationDirective(const std::vector<Token>& tokens,
       }
       i++;
       location.setCgiPassMapping(extension, interpreter);
+    } else if (locationDirective == "return" && i < tokens.size()) {
+      // Parse: return <code> <url>;
+      if (tokens[i].type != NUMBER) {
+        throw std::runtime_error(
+            "Expected status code after 'return' directive");
+      }
+      u_int16_t code =
+          static_cast<u_int16_t>(std::atoi(tokens[i].value.c_str()));
+      i++;
+      std::string url;
+      if (i < tokens.size() && tokens[i].value != ";") {
+        url = tokens[i].value;
+        i++;
+      }
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error("Expected ';' after 'return' directive");
+      }
+      i++;
+      location.setReturn(code, url);
     } else {
       while (i < tokens.size() && tokens[i].value != ";") {
         i++;
@@ -249,7 +268,7 @@ static size_t parseLocation(const std::vector<Token>& tokens,
   }
 
   location.inheritCgiFromParent(server.isCgiEnabled());
-  
+
   location.inheritCgiPassFromParent(server.getCgiPassMap());
 
   server.addLocation(location);

@@ -11,8 +11,8 @@ bool isLevel(const std::string& s) {
 bool isAttribute(const std::string& s) {
   return s == "root" || s == "client_max_body_size" || s == "listen" ||
          s == "index" || s == "error_page" || s == "server_name" ||
-         s == "autoindex" || s == "redirect" || s == "index" || s == "cgi" ||
-         s == "allow_methods" || s == "upload_dir" || s == "cgi_enabled"  ||
+         s == "autoindex" || s == "redirect" || s == "return" || s == "cgi" ||
+         s == "allow_methods" || s == "upload_dir" || s == "cgi_enabled" ||
          s == "transfer_encoding" || s == "cgi_pass";
 }
 bool isAllDigits(const std::string& s) {
@@ -127,7 +127,7 @@ int isAllowedTokens(const std::vector<Token>& tokens) {
         char c = val[i];
         // Allow common characters for file paths, URIs, and network addresses
         if (!isalnum(c) && c != '_' && c != '.' && c != '/' && c != '-' &&
-            c != '=' && c != ':' && c != '?' && c != '&' && c != '%' && 
+            c != '=' && c != ':' && c != '?' && c != '&' && c != '%' &&
             c != '@' && c != '!' && c != '*' && c != '+' && c != '~' &&
             c != '^' && c != '$' && c != '\\' && it->quoted == 0) {
           throw std::runtime_error("Invalid identifier: " + val);

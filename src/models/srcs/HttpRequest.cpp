@@ -123,7 +123,9 @@ size_t HttpRequest::contentLength() const {
   return safeAtoi(it->second);
 }
 
-void HttpRequest::parseQuery(const std::string& target, std::string& cleanPath, std::map<std::string, std::string>& outQuery) {
+void HttpRequest::parseQuery(const std::string& target,
+                             std::string& cleanPath,
+                             std::map<std::string, std::string>& outQuery) {
   size_t qpos = target.find('?');
   if (qpos == std::string::npos) {
     cleanPath = target;
@@ -156,7 +158,9 @@ void HttpRequest::parseQuery(const std::string& target, std::string& cleanPath, 
   }
 }
 
-bool HttpRequest::parseHeaderLine(const std::string& line, std::string& k, std::string& v) {
+bool HttpRequest::parseHeaderLine(const std::string& line,
+                                  std::string& k,
+                                  std::string& v) {
   size_t colon = line.find(':');
   if (colon == std::string::npos)
     return false;
@@ -165,7 +169,8 @@ bool HttpRequest::parseHeaderLine(const std::string& line, std::string& k, std::
   return true;
 }
 
-HttpRequest* makeRequestByMethod(const std::string& method, const RequestContext& ctx) {
+HttpRequest* makeRequestByMethod(const std::string& method,
+                                 const RequestContext& ctx) {
   if (method == "GET" || method == "HEAD")
     return new GetHeadRequest(ctx);
   if (method == "POST")
@@ -188,12 +193,25 @@ GetHeadRequest::GetHeadRequest(const RequestContext& ctx) : HttpRequest(ctx) {}
 
 GetHeadRequest::~GetHeadRequest() {}
 
-void GetHeadRequest::handle(HttpResponse& res, sockaddr_in& clientAddr, int epollFd) {
+void GetHeadRequest::handle(HttpResponse& res,
+                            sockaddr_in& clientAddr,
+                            int epollFd) {
   bool includeBody = (method == "GET");
   handleGetOrHead(res, includeBody, clientAddr, epollFd);
 }
 
-void HttpRequest::handleGetOrHead(HttpResponse& res, bool includeBody, sockaddr_in& clientAddr, int epollFd) {
+void HttpRequest::handleGetOrHead(HttpResponse& res,
+                                  bool includeBody,
+                                  sockaddr_in& clientAddr,
+                                  int epollFd) {
+  // Check for redirect first
+  if (_ctx.hasReturn()) {
+    const std::pair<u_int16_t, std::string>& returnData = _ctx.getReturnData();
+    res.setVersion("HTTP/1.0");
+    res.setRedirect(returnData.first, returnData.second);
+    return;
+  }
+
   if (!_ctx.isMethodAllowed(method)) {
     res.setErrorFromContext(405, _ctx);
     return;
@@ -208,7 +226,8 @@ void HttpRequest::handleGetOrHead(HttpResponse& res, bool includeBody, sockaddr_
     return;
   }
 
-  // Check if CGI is enabled (location overrides server setting) and file is not a directory
+  // Check if CGI is enabled (location overrides server setting) and file is not
+  // a directory
   if (isCgiEnabledForRequest() && !S_ISDIR(fileStat.st_mode)) {
     // Handle CGI requests
     CgiHandle cgiHandler;
@@ -305,7 +324,9 @@ bool PostRequest::isPathSafe(const std::string& path) const {
   return true;
 }
 
-void PostRequest::handle(HttpResponse& res, sockaddr_in& clientAddr, int epollFd) {
+void PostRequest::handle(HttpResponse& res,
+                         sockaddr_in& clientAddr,
+                         int epollFd) {
   if (!_ctx.isMethodAllowed("POST")) {
     res.setErrorFromContext(405, _ctx);
     return;
@@ -413,7 +434,9 @@ bool DeleteRequest::isPathSafe(const std::string& fullPath) const {
   return true;
 }
 
-void DeleteRequest::handle(HttpResponse& res, sockaddr_in& clientAddr, int epollFd) {
+void DeleteRequest::handle(HttpResponse& res,
+                           sockaddr_in& clientAddr,
+                           int epollFd) {
   (void)epollFd;
   (void)clientAddr;
   if (!_ctx.isMethodAllowed("DELETE")) {

@@ -122,3 +122,15 @@ std::string RequestContext::getErrorPageContent(u_int16_t code) const {
 
   return content;
 }
+
+bool RequestContext::hasReturn() const {
+  if (location && location->hasReturn())
+    return true;
+  return server.hasReturn();
+}
+
+const std::pair<u_int16_t, std::string>& RequestContext::getReturnData() const {
+  if (location && location->hasReturn())
+    return location->getReturnData();
+  return server.getReturnData();
+}
