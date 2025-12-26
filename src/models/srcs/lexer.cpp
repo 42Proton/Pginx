@@ -3,7 +3,7 @@
 #include <parser.hpp>
 #include <string>
 #include <vector>
-#include "defaults.hpp"
+#include "utils.hpp"
 
 bool isLevel(const std::string& s) {
   return s == "server" || s == "http" || s == "location";
@@ -11,8 +11,9 @@ bool isLevel(const std::string& s) {
 bool isAttribute(const std::string& s) {
   return s == "root" || s == "client_max_body_size" || s == "listen" ||
          s == "index" || s == "error_page" || s == "server_name" ||
-         s == "autoindex" || s == "redirect" || s == "index" || s == "cgi" ||
-         s == "allow_methods" || s == "upload_dir";
+         s == "autoindex" || s == "redirect" || s == "return" || s == "cgi" ||
+         s == "allow_methods" || s == "upload_dir" || s == "cgi_enabled" ||
+         s == "transfer_encoding" || s == "cgi_pass";
 }
 bool isAllDigits(const std::string& s) {
   for (size_t i = 0; i < s.size(); ++i)
@@ -126,9 +127,9 @@ int isAllowedTokens(const std::vector<Token>& tokens) {
         char c = val[i];
         // Allow common characters for file paths, URIs, and network addresses
         if (!isalnum(c) && c != '_' && c != '.' && c != '/' && c != '-' &&
-            c != '=' && c != ':' && c != '?' && c != '&' && c != '%' && 
+            c != '=' && c != ':' && c != '?' && c != '&' && c != '%' &&
             c != '@' && c != '!' && c != '*' && c != '+' && c != '~' &&
-            c != '^' && c != '$' && it->quoted == 0) {
+            c != '^' && c != '$' && c != '\\' && it->quoted == 0) {
           throw std::runtime_error("Invalid identifier: " + val);
         }
       }
@@ -139,6 +140,4 @@ int isAllowedTokens(const std::vector<Token>& tokens) {
 
 void checks(const std::vector<Token>& tokens) {
   isAllowedTokens(tokens);
-  // later add: checkScopes(tokens);
-  // later add: checkSemicolons(tokens);
 }

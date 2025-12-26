@@ -23,7 +23,9 @@ Location (Specific Path Configuration):
 RequestContext::RequestContext(const Server& srv, const LocationConfig* loc)
     : server(srv), location(loc), rootDir("") {
   rootDir = server.getRoot();
-  if (location && !location->getRoot().empty())
+  // Only use location's root if it's explicitly set (not the default)
+  if (location && !location->getRoot().empty() &&
+      location->getRoot() != DEFAULT_ROOT_PATH)
     rootDir = location->getRoot();
 }
 
@@ -50,7 +52,6 @@ bool RequestContext::getAutoIndex() const {
 bool RequestContext::isMethodAllowed(const std::string& method) const {
   if (location)
     return location->isMethodAllowed(method);
-  // If no location-specific restrictions, allow common HTTP methods
   return (method == "GET" || method == "HEAD" || method == "POST" ||
           method == "PUT" || method == "DELETE" || method == "PATCH");
 }
@@ -82,7 +83,6 @@ std::string RequestContext::getFullPath(const std::string& requestPath) const {
     fullPath += requestPath;
   }
 
-  std::cout << "Resolved full path: " << fullPath << '\n';
   return fullPath;
 }
 
@@ -121,4 +121,16 @@ std::string RequestContext::getErrorPageContent(u_int16_t code) const {
   }
 
   return content;
+}
+
+bool RequestContext::hasReturn() const {
+  if (location && location->hasReturn())
+    return true;
+  return server.hasReturn();
+}
+
+const std::pair<u_int16_t, std::string>& RequestContext::getReturnData() const {
+  if (location && location->hasReturn())
+    return location->getReturnData();
+  return server.getReturnData();
 }

@@ -4,13 +4,6 @@
 #include <BaseBlock.hpp>
 #include <LocationConfig.hpp>
 
-// Listen Context
-/**
- * Why not pairs? Simply because we can add to the struct without changing anything in the already existing code.
- * And naming Convention is used to make it clear that this struct is used for listening purposes.
- */
-
-// This is a helper struct inside Server for storing listen directives
 struct ListenCtx {
   u_int16_t port;
   std::string addr;
@@ -24,7 +17,7 @@ struct ListenCtx {
   
 };
 
-// Represents one server { ... } block inside the config.
+
 class Server : public BaseBlock {
   private:
     std::vector<ListenCtx> _listens;
@@ -32,22 +25,25 @@ class Server : public BaseBlock {
     std::string _root;
     std::vector<LocationConfig> _locations;
 
-    // Location Variable is yet to be defiend until Amjad implements it.
     bool validateAddress(const std::string &addr) const;
 
   public:
     Server();
     ~Server() {};
 
-    // Most of these are getters and setters for attributes of Servers
     const std::vector<ListenCtx> &getListens() const;
+    u_int16_t getServerPort(std::string server) const;
     const std::vector<std::string> &getServerNames() const;
+    const std::string &getMatchingServerName(const std::string &hostHeader) const;
     void insertListen(u_int16_t port = 80, const std::string &addr = "0.0.0.0");
     void insertServerNames(const std::string &serverName);
     void setRoot(const std::string &root = "www/");
     const std::string &getRoot() const;
+    const std::string &getServerAddr(std::string server) const;
     void setIndexFiles(const std::vector<std::string> &indexFiles);
     const std::vector<std::string> &getIndexFiles() const;
+    void enableCgi(bool enabled);
+    bool isCgiEnabled() const;
 
     // Location management
     void addLocation(const LocationConfig &location);

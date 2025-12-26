@@ -1,4 +1,3 @@
-#include <defaults.hpp>
 #include <sstream>
 #include <utils.hpp>
 #include <CommonExceptions.hpp>

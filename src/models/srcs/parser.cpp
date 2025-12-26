@@ -24,6 +24,10 @@ static size_t parseLocationDirective(const std::vector<Token>& tokens,
     } else if (locationDirective == "index" && i < tokens.size()) {
       std::vector<std::string> indexFiles;
       while (i < tokens.size() && tokens[i].value != ";") {
+        // Check if token is a valid index file (not another directive)
+        if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL) {
+          throw std::runtime_error("Expected ';' after 'index' directive");
+        }
         indexFiles.push_back(tokens[i].value);
         i++;
       }
@@ -75,6 +79,11 @@ static size_t parseLocationDirective(const std::vector<Token>& tokens,
     } else if (locationDirective == "allow_methods" && i < tokens.size()) {
       std::vector<std::string> methods;
       while (i < tokens.size() && tokens[i].value != ";") {
+        // Check if token is a valid method (not another directive)
+        if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL) {
+          throw std::runtime_error(
+              "Expected ';' after 'allow_methods' directive");
+        }
         methods.push_back(tokens[i].value);
         i++;
       }
@@ -86,6 +95,64 @@ static size_t parseLocationDirective(const std::vector<Token>& tokens,
       if (!methods.empty()) {
         location.setMethods(methods);
       }
+    } else if (locationDirective == "cgi_enabled" && i < tokens.size()) {
+      std::string value = tokens[i].value;
+      i++;
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error("Expected ';' after 'cgi_enabled' directive");
+      }
+      i++;
+      if (value == "on") {
+        location.setCgiEnabled(true);
+      } else if (value == "off") {
+        location.setCgiEnabled(false);
+      } else {
+        throw std::runtime_error("Invalid value for 'cgi_enabled': " + value);
+      }
+    } else if (locationDirective == "transfer_encoding" && i < tokens.size()) {
+      std::string value = tokens[i].value;
+      i++;
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error(
+            "Expected ';' after 'transfer_encoding' directive");
+      }
+      i++;
+      if (value == "on") {
+        location.setTransferEncoding(true);
+      } else if (value == "off") {
+        location.setTransferEncoding(false);
+      } else {
+        throw std::runtime_error("Invalid value for 'transfer_encoding': " +
+                                 value);
+      }
+    } else if (locationDirective == "cgi_pass" && i + 1 < tokens.size()) {
+      std::string extension = tokens[i].value;
+      std::string interpreter = tokens[i + 1].value;
+      i += 2;
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error("Expected ';' after 'cgi_pass' directive");
+      }
+      i++;
+      location.setCgiPassMapping(extension, interpreter);
+    } else if (locationDirective == "return" && i < tokens.size()) {
+      // Parse: return <code> <url>;
+      if (tokens[i].type != NUMBER) {
+        throw std::runtime_error(
+            "Expected status code after 'return' directive");
+      }
+      u_int16_t code =
+          static_cast<u_int16_t>(std::atoi(tokens[i].value.c_str()));
+      i++;
+      std::string url;
+      if (i < tokens.size() && tokens[i].value != ";") {
+        url = tokens[i].value;
+        i++;
+      }
+      if (i >= tokens.size() || tokens[i].value != ";") {
+        throw std::runtime_error("Expected ';' after 'return' directive");
+      }
+      i++;
+      location.setReturn(code, url);
     } else {
       while (i < tokens.size() && tokens[i].value != ";") {
         i++;
@@ -200,6 +267,10 @@ static size_t parseLocation(const std::vector<Token>& tokens,
                              "': missing '}'");
   }
 
+  location.inheritCgiFromParent(server.isCgiEnabled());
+
+  location.inheritCgiPassFromParent(server.getCgiPassMap());
+
   server.addLocation(location);
   return i;
 }
@@ -240,6 +311,10 @@ static size_t parseIndexDirective(const std::vector<Token>& tokens,
                                   Server& server) {
   std::vector<std::string> indexFiles;
   while (i < tokens.size() && tokens[i].value != ";") {
+    // Check if token is a valid index file (not another directive)
+    if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL) {
+      throw std::runtime_error("Expected ';' after 'index' directive");
+    }
     indexFiles.push_back(tokens[i].value);
     i++;
   }
@@ -257,6 +332,11 @@ static size_t parseBasicServerDirective(const std::vector<Token>& tokens,
                                         const std::string& directive) {
   if (directive == "listen" && i < tokens.size()) {
     while (i < tokens.size() && tokens[i].value != ";") {
+      // Check if token is a valid listen value (not another directive)
+      if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL) {
+        throw std::runtime_error("Expected ';' after 'listen' directive");
+      }
+
       std::string listenValue = tokens[i].value;
       u_int16_t port = 80;
       std::string addr = "0.0.0.0";
@@ -283,6 +363,10 @@ static size_t parseBasicServerDirective(const std::vector<Token>& tokens,
     i++;
   } else if (directive == "server_name" && i < tokens.size()) {
     while (i < tokens.size() && tokens[i].value != ";") {
+      // Check if token is a valid server name (not another directive)
+      if (tokens[i].type == ATTRIBUTE || tokens[i].type == LEVEL) {
+        throw std::runtime_error("Expected ';' after 'server_name' directive");
+      }
       server.insertServerNames(tokens[i].value);
       i++;
     }
@@ -315,6 +399,24 @@ static size_t parseBasicServerDirective(const std::vector<Token>& tokens,
       throw std::runtime_error("Expected ';' after 'autoindex' directive");
     }
     i++;
+  } else if (directive == "cgi_enabled" && i < tokens.size()) {
+    if (tokens[i].value == "on") {
+      server.setCgiEnabled(true);
+    }
+    i++;
+    if (i >= tokens.size() || tokens[i].value != ";") {
+      throw std::runtime_error("Expected ';' after 'cgi_enabled' directive");
+    }
+    i++;
+  } else if (directive == "cgi_pass" && i + 1 < tokens.size()) {
+    std::string extension = tokens[i].value;
+    std::string interpreter = tokens[i + 1].value;
+    i += 2;
+    if (i >= tokens.size() || tokens[i].value != ";") {
+      throw std::runtime_error("Expected ';' after 'cgi_pass' directive");
+    }
+    i++;
+    server.setCgiPassMapping(extension, interpreter);
   }
   return i;
 }
@@ -389,49 +491,73 @@ Container parser(const std::vector<Token>& tokens) {
 
   if (tokens.empty())
     throw std::runtime_error("Empty configuration");
-  if (!expect("http", tokens[0]))
-    throw std::runtime_error("Expected 'http'");
 
-  size_t i = 1;
+  size_t i = 0;
   int httpBraceLevel = 0;
 
-  if (i >= tokens.size() || tokens[i].value != "{") {
-    throw std::runtime_error("Expected '{' after 'http'");
-  }
-  httpBraceLevel++;
-  i++;
+  // Check if config starts with 'http' block or directly with 'server' blocks
+  bool hasHttpBlock = expect("http", tokens[0]);
 
-  while (i < tokens.size() && httpBraceLevel > 0) {
-    if (tokens[i].value == "{") {
-      httpBraceLevel++;
-    } else if (tokens[i].value == "}") {
-      if (httpBraceLevel <= 0) {
-        throw std::runtime_error("Unexpected '}' outside of any block");
+  if (hasHttpBlock) {
+    // Parse with http block wrapper
+    i = 1;
+    if (i >= tokens.size() || tokens[i].value != "{") {
+      throw std::runtime_error("Expected '{' after 'http'");
+    }
+    httpBraceLevel++;
+    i++;
+
+    while (i < tokens.size() && httpBraceLevel > 0) {
+      if (tokens[i].value == "{") {
+        httpBraceLevel++;
+      } else if (tokens[i].value == "}") {
+        if (httpBraceLevel <= 0) {
+          throw std::runtime_error("Unexpected '}' outside of any block");
+        }
+        httpBraceLevel--;
+        if (httpBraceLevel == 0) {
+          i++;
+          break;
+        }
       }
-      httpBraceLevel--;
-      if (httpBraceLevel == 0) {
+
+      if (tokens[i].type == LEVEL && tokens[i].value == "server") {
+        i = parseServer(tokens, i, container, httpBraceLevel);
+      } else {
         i++;
+      }
+    }
+
+    if (httpBraceLevel != 0) {
+      throw std::runtime_error("Unclosed 'http' block: missing '}'");
+    }
+
+    if (i < tokens.size()) {
+      while (i < tokens.size() && tokens[i].value == ";") {
+        i++;
+      }
+      if (i < tokens.size()) {
+        throw std::runtime_error("Unexpected tokens after 'http' block");
+      }
+    }
+  } else {
+    // Parse server blocks directly without http wrapper
+    while (i < tokens.size()) {
+      // Skip semicolons between server blocks
+      while (i < tokens.size() && tokens[i].value == ";") {
+        i++;
+      }
+
+      if (i >= tokens.size()) {
         break;
       }
-    }
 
-    if (tokens[i].type == LEVEL && tokens[i].value == "server") {
-      i = parseServer(tokens, i, container, httpBraceLevel);
-    } else {
-      i++;
-    }
-  }
-
-  if (httpBraceLevel != 0) {
-    throw std::runtime_error("Unclosed 'http' block: missing '}'");
-  }
-
-  if (i < tokens.size()) {
-    while (i < tokens.size() && tokens[i].value == ";") {
-      i++;
-    }
-    if (i < tokens.size()) {
-      throw std::runtime_error("Unexpected tokens after 'http' block");
+      if (tokens[i].type == LEVEL && tokens[i].value == "server") {
+        int dummyBraceLevel = 0;  // Reset for each server block
+        i = parseServer(tokens, i, container, dummyBraceLevel);
+      } else {
+        throw std::runtime_error("Expected 'server' block at top level");
+      }
     }
   }
 

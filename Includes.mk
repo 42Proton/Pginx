@@ -19,6 +19,7 @@ MODELS=\
 	models/srcs/HttpParser.cpp\
 	models/srcs/requestContext.cpp\
 	models/srcs/ResourceGuards.cpp\
+	models/srcs/CgiHandle.cpp\
 
 TEMPLATES=\
 
@@ -36,3 +37,4 @@ HEADERS=\
 	models/headers/HttpParser.hpp\
 	models/headers/requestContext.hpp\
 	models/headers/ResourceGuards.hpp\
+	models/headers/CgiHandle.hpp\

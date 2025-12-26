@@ -150,10 +150,9 @@ bool SocketManager::initSockets(const std::vector<ServerSocketInfo> &servers)
 
         listeningSockets.push_back(listen_fd);
         existingSockets[key] = listen_fd;
-
-        std::cout << "Server listening on " << key
-                  << " (fd=" << listen_fd << ")" << std::endl;
     }
+    if (listeningSockets.empty())
+        return false;
     return true;
 }
 
@@ -186,7 +185,11 @@ bool SocketManager::isServerSocket(int fd) const
 
 void SocketManager::acceptNewClient(int readyServerFd, int epfd)
 {
-    SocketGuard connectionGuard(accept(readyServerFd, NULL, NULL));
+    sockaddr_in tempClientAddr;
+    std::memset(&tempClientAddr, 0, sizeof(tempClientAddr));
+    socklen_t tempClientLen = sizeof(tempClientAddr);
+    
+    SocketGuard connectionGuard(accept(readyServerFd, (sockaddr *)&tempClientAddr, &tempClientLen));
     if (!connectionGuard.isValid())
         return;
 
@@ -194,6 +197,10 @@ void SocketManager::acceptNewClient(int readyServerFd, int epfd)
     {
         return; // SocketGuard auto-closes
     }
+    
+    // Store the client address for this specific connection
+    clientAddresses[connectionGuard.get()] = tempClientAddr;
+    
     struct epoll_event ev;
     ev.events = EPOLLIN | EPOLLOUT;
     ev.data.fd = connectionGuard.get();
@@ -265,6 +272,28 @@ bool SocketManager::isBodyTooLarge(int fd)
 
     std::string headers = requestBuffers[fd].substr(0, header_end);
 
+    // Check if Transfer-Encoding: chunked is present
+    // For chunked encoding, size validation happens after un-chunking
+    size_t te_pos = headers.find("Transfer-Encoding:");
+    if (te_pos != std::string::npos)
+    {
+        std::string te_value = headers.substr(te_pos + 18);
+        size_t te_end = te_value.find("\r\n");
+        if (te_end != std::string::npos)
+            te_value = te_value.substr(0, te_end);
+        
+        // Convert to lowercase for comparison
+        for (size_t i = 0; i < te_value.length(); ++i)
+            te_value[i] = std::tolower(te_value[i]);
+        
+        if (te_value.find("chunked") != std::string::npos)
+        {
+            // Skip validation for chunked requests
+            // Size will be validated after un-chunking
+            return false;
+        }
+    }
+
     // Find Content-Length
     size_t content_length = 0;
     size_t cl_pos = headers.find("Content-Length:");
@@ -330,7 +359,7 @@ void SocketManager::sendHttpError(int fd, const std::string &status, int epfd)
         std::cerr << "Error while loading error page: " << e.what() << std::endl;
 
         std::ostringstream fallback;
-        fallback << "<html><body><h1>Error 404</h1></body></html>";
+        fallback << "<html><body><h1>Error " << code << "</h1></body></html>";
         body = fallback.str();
     }
 
@@ -395,18 +424,17 @@ HttpRequest *SocketManager::fillRequest(const std::string &rawRequest, Server &s
     std::istringstream lineStream(requestLine);
     std::string method, path, version;
     lineStream >> method >> path >> version;
-
     if (method.empty() || path.empty() || version.empty())
-        return 0; // Malformed request line
-
+    return 0; // Malformed request line
+    
     // Parse query string to get clean path for location matching
     std::string cleanPath;
     std::map<std::string, std::string> query;
     HttpRequest::parseQuery(path, cleanPath, query);
-
+    
     // Find matching location for this path
     const LocationConfig *location = server.findLocation(cleanPath);
-
+    
     // Create RequestContext with server and location
     RequestContext ctx(server, location);
 
@@ -445,16 +473,71 @@ HttpRequest *SocketManager::fillRequest(const std::string &rawRequest, Server &s
     }
 
     if (!body.empty())
-        request->appendBody(body);
+    {
+        if (request->isChunked())
+        {
+            std::string unchunkedBody;
+            size_t pos = 0;
+            
+            while (pos < body.length())
+            {
+                // Find chunk size line
+                size_t lineEnd = body.find('\n', pos);
+                if (lineEnd == std::string::npos)
+                    break;
+                
+                std::string sizeLine = body.substr(pos, lineEnd - pos);
+                while (!sizeLine.empty() && (sizeLine[sizeLine.length() - 1] == '\r' || 
+                                             sizeLine[sizeLine.length() - 1] == ' '))
+                    sizeLine.erase(sizeLine.length() - 1);
+                
+                size_t semicolon = sizeLine.find(';');
+                if (semicolon != std::string::npos)
+                    sizeLine = sizeLine.substr(0, semicolon);
+                
+                // Parse hex chunk size
+                std::istringstream hexStream(sizeLine);
+                unsigned long chunkSize;
+                hexStream >> std::hex >> chunkSize;
+                
+                if (hexStream.fail())
+                    break;
+                pos = lineEnd + 1;
+                // Check for terminating chunk
+                if (chunkSize == 0)
+                    break;
+                
+                // Extract chunk data
+                if (pos + chunkSize <= body.length())
+                {
+                    unchunkedBody.append(body.substr(pos, chunkSize));
+                    pos += chunkSize;
+                    
+                    // Skip trailing newline after chunk data
+                    if (pos < body.length() && body[pos] == '\n')
+                        pos++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            
+            request->appendBody(unchunkedBody);
+        }
+        else
+        {
+            request->appendBody(body);
+        }
+    }
 
     return request;
 }
 
-void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::string &rawRequest)
+void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::string &rawRequest, sockaddr_in &clientAddr)
 {
     Server &myServer = selectServerForClient(readyServerFd);
 
-    // will be replaced by omran part
     RequestGuard request(fillRequest(rawRequest, myServer));
     if (!request.isValid())
     {
@@ -464,27 +547,27 @@ void SocketManager::processFullRequest(int readyServerFd, int epfd, const std::s
     }
 
     // Validate the request before handling it
-    std::string validationError;
-    if (!request->validate(validationError))
-    {
-        // Request validation failed
-        HttpResponse res;
-        res.setError(400, "Bad Request");
-        res.setBody("<h1>400 Bad Request</h1><p>" + validationError + "</p>");
-        res.setVersion("HTTP/1.0");
-        sendBuffers[readyServerFd] = res.build();
+    // std::string validationError;
+    // if (!request->validate(validationError))
+    // {
+    //     // Request validation failed
+    //     HttpResponse res;
+    //     res.setError(400, "Bad Request");
+    //     res.setBody("<h1>400 Bad Request</h1><p>" + validationError + "</p>");
+    //     res.setVersion("HTTP/1.0");
+    //     sendBuffers[readyServerFd] = res.build();
 
-        struct epoll_event ev;
-        ev.events = EPOLLIN | EPOLLOUT;
-        ev.data.fd = readyServerFd;
-        epoll_ctl(epfd, EPOLL_CTL_MOD, readyServerFd, &ev);
+    //     struct epoll_event ev;
+    //     ev.events = EPOLLIN | EPOLLOUT;
+    //     ev.data.fd = readyServerFd;
+    //     epoll_ctl(epfd, EPOLL_CTL_MOD, readyServerFd, &ev);
 
-        requestBuffers[readyServerFd].clear();
-        return; // RequestGuard automatically deletes on scope exit
-    }
+    //     requestBuffers[readyServerFd].clear();
+    //     return; // RequestGuard automatically deletes on scope exit
+    // }
 
     HttpResponse res;
-    request->handle(res);
+    request->handle(res, clientAddr, epfd);
     res.setVersion("HTTP/1.0");
     sendBuffers[readyServerFd] = res.build();
 
@@ -536,6 +619,7 @@ void SocketManager::handleRequest(int readyServerFd, int epfd)
         epoll_ctl(epfd, EPOLL_CTL_DEL, readyServerFd, 0);
         requestBuffers.erase(readyServerFd);
         lastActivity.erase(readyServerFd);
+        clientAddresses.erase(readyServerFd);
         std::cout << "Closed client fd=" << readyServerFd << std::endl;
         return;
     }
@@ -559,7 +643,9 @@ void SocketManager::handleRequest(int readyServerFd, int epfd)
     size_t header_end = requestBuffers[readyServerFd].find("\r\n\r\n");
     if (header_end != std::string::npos)
     {
-        processFullRequest(readyServerFd, epfd, requestBuffers[readyServerFd]);
+        // Use the stored client address for this connection
+        sockaddr_in actualClientAddr = clientAddresses[readyServerFd];
+        processFullRequest(readyServerFd, epfd, requestBuffers[readyServerFd], actualClientAddr);
         requestBuffers[readyServerFd].clear();
     }
 }
@@ -611,6 +697,7 @@ void SocketManager::sendBuffer(int fd, int epfd)
         requestBuffers.erase(fd);
         lastActivity.erase(fd);
         sendBuffers.erase(fd);
+        clientAddresses.erase(fd);
     }
 }
 

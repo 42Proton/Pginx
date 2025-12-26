@@ -5,29 +5,43 @@
 #include <utils.hpp>
 
 class BaseBlock {
-  protected:
-      std::string _root;
-      std::pair<u_int16_t, std::string> _returnData;
-      size_t _clientMaxBodySize;
-      std::vector<std::string> _indexFiles;
-      std::map<u_int16_t, std::string> _errorPages;
-      bool _autoIndex;
-      BaseBlock();
-      BaseBlock(const BaseBlock &obj);
-      virtual ~BaseBlock();
+ protected:
+  std::string _root;
+  std::pair<u_int16_t, std::string> _returnData;
+  size_t _clientMaxBodySize;
+  std::vector<std::string> _indexFiles;
+  std::map<u_int16_t, std::string> _errorPages;
+  bool _autoIndex;
+  bool _cgiEnabled;
+  bool _cgiExplicitlySet;
+  std::map<std::string, std::string> _cgiPassMap;
+  BaseBlock();
+  BaseBlock(const BaseBlock& obj);
+  virtual ~BaseBlock();
 
-  public:
-      void setRoot(const std::string &root);
-      void setClientMaxBodySize(std::string &sSize);
-      void insertIndex(const std::vector<std::string> &routes);
-      void insertErrorPage(u_int16_t errorCode, const std::string &errorPage);
-      void activateAutoIndex();
-      const std::string &getRoot() const;
-      const std::pair<u_int16_t, std::string> &getReturnData() const;
-      size_t getClientMaxBodySize() const;
-      const std::vector<std::string> &getIndexFiles() const;
-      const std::string *getErrorPage(const u_int16_t code) const;
-      bool getAutoIndex() const;
+ public:
+  void setRoot(const std::string& root);
+  void setClientMaxBodySize(std::string& sSize);
+  void setReturn(u_int16_t code, const std::string& url);
+  void insertIndex(const std::vector<std::string>& routes);
+  void insertErrorPage(u_int16_t errorCode, const std::string& errorPage);
+  void activateAutoIndex();
+  const std::string& getRoot() const;
+  const std::pair<u_int16_t, std::string>& getReturnData() const;
+  bool hasReturn() const;
+  size_t getClientMaxBodySize() const;
+  bool isCgiEnabled() const;
+  void setCgiEnabled(bool enabled);
+  bool isCgiExplicitlySet() const;
+  void inheritCgiFromParent(bool parentCgiEnabled);
+  void setCgiPassMapping(const std::string& extension,
+                         const std::string& interpreterPath);
+  std::map<std::string, std::string> getCgiPassMap() const;
+  void inheritCgiPassFromParent(
+      const std::map<std::string, std::string>& parentCgiPassMap);
+  const std::vector<std::string>& getIndexFiles() const;
+  const std::string* getErrorPage(const u_int16_t code) const;
+  bool getAutoIndex() const;
 };
 
 #endif

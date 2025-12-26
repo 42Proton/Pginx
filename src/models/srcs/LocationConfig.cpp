@@ -24,7 +24,7 @@ LocationConfig::LocationConfig(const std::string &path, MatchType matchType) : B
     _methods.push_back("DELETE");
 }
 
-LocationConfig::LocationConfig(const LocationConfig &obj) : BaseBlock(obj), _path(obj._path), _matchType(obj._matchType), _methods(obj._methods)
+LocationConfig::LocationConfig(const LocationConfig &obj) : BaseBlock(obj), _path(obj._path), _matchType(obj._matchType), _methods(obj._methods), _uploadDir(obj._uploadDir), _chunked_transfer_encoding(obj._chunked_transfer_encoding)
 {
 }
 
@@ -64,6 +64,11 @@ void LocationConfig::addMethod(const std::string &method)
             return;
     }
     this->_methods.push_back(method);
+}
+
+void LocationConfig::setTransferEncoding(bool enabled)
+{
+    this->_chunked_transfer_encoding = enabled;
 }
 
 void LocationConfig::setMethods(const std::vector<std::string> &methods)
